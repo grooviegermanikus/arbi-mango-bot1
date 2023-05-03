@@ -7,6 +7,8 @@ use jsonrpsee::tracing::instrument::WithSubscriber;
 use serde::{Deserialize, Serialize};
 use serde_json::to_writer;
 
+mod services;
+
 #[tokio::main]
 async fn main() {
 
@@ -25,6 +27,11 @@ fn calc_price(response: Vec<SwapQueryResult>) -> f64 {
     assert_eq!(response.len(), 1);
     let result = &response[0];
 
+    // TODO findMax(out) für buy
+    // https://github.com/blockworks-foundation/mango-v4/blob/dev/ts/client/src/router.ts
+    // prepareMangoRouterInstructions
+
+    // should be same as amount (100000000)
     let in_amount = result.inAmount.parse::<u64>().unwrap();
     let out_amount = result.outAmount.parse::<u64>().unwrap();
 
@@ -49,6 +56,7 @@ async fn make_http_call() -> anyhow::Result<Vec<SwapQueryResult>> {
     const wallet_address: &str = "11111111111111111111111111111111";
     const slippage: &str = "0.005";
 
+    // see mango-v4 -> router.ts
     let quote =
         reqwest::Client::new()
             .get("https://api.mngo.cloud/router/v1/swap")
@@ -60,6 +68,7 @@ async fn make_http_call() -> anyhow::Result<Vec<SwapQueryResult>> {
                 ("feeBps", 0.to_string()),
                 ("mode", "ExactIn".to_string()),
                 ("wallet", wallet_address.to_string()),
+                ("otherAmountThreshold", 0.to_string()), // 'ExactIn' ? 0 : MAX_INTEGER
             ])
         .send()
         .await
