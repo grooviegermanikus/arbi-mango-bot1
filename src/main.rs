@@ -1,10 +1,6 @@
 use std::cmp::Ordering;
 use std::iter;
 use anyhow::Context;
-use jsonrpsee::{rpc_params, tracing};
-use jsonrpsee::core::client::ClientT;
-use jsonrpsee::http_client::HttpClient;
-use jsonrpsee::tracing::instrument::WithSubscriber;
 use serde::{Deserialize, Serialize};
 use serde_json::to_writer;
 
@@ -12,9 +8,6 @@ mod services;
 
 #[tokio::main]
 async fn main() {
-
-    // make_jsonrpc_sample_call().await;
-
 
     let response = make_http_call().await;
     println!("resO {:?}", response);
@@ -25,7 +18,7 @@ async fn main() {
 
 // e.g. 0.0536755 for ETH/USDC
 fn calc_price(response: Vec<SwapQueryResult>) -> f64 {
-    let best_route = response.into_iter()
+    let route_with_highest_buy_price = response.into_iter()
         .max_by(|x, y|
             x.outAmount.parse::<u64>().unwrap().cmp(&y.outAmount.parse::<u64>().unwrap())
         )
@@ -36,8 +29,8 @@ fn calc_price(response: Vec<SwapQueryResult>) -> f64 {
     // prepareMangoRouterInstructions
 
     // should be same as amount (100000000)
-    let in_amount = best_route.inAmount.parse::<u64>().unwrap();
-    let out_amount = best_route.outAmount.parse::<u64>().unwrap();
+    let in_amount = route_with_highest_buy_price.inAmount.parse::<u64>().unwrap();
+    let out_amount = route_with_highest_buy_price.outAmount.parse::<u64>().unwrap();
 
     out_amount as f64 / in_amount as f64
 }
@@ -53,8 +46,10 @@ struct SwapQueryResult {
 }
 
 async fn make_http_call() -> anyhow::Result<Vec<SwapQueryResult>> {
-    
+
+    // USDC
     const input_mint: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+    // ETH
     const output_mint: &str = "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs";
     const amount: u64 = 100000000;
     const wallet_address: &str = "11111111111111111111111111111111";
@@ -82,27 +77,6 @@ async fn make_http_call() -> anyhow::Result<Vec<SwapQueryResult>> {
         .context("receiving json response from jupiter swap price")?;
 
     return Ok(quote);
-}
-
-// https://api.mngo.cloud/router/v1/swap
-//  ?inputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
-//  &outputMint=7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs
-//  &amount=100000000
-//  &slippage=0.005
-//  &feeBps=0
-//  &mode=ExactIn
-//  &wallet=11111111111111111111111111111111
-//  &otherAmountThresholdotherAmountThreshold=0
-
-// https://github.com/paritytech/jsonrpsee/tree/master/examples/examples
-async fn make_jsonrpc_sample_call() {
-    let client: HttpClient<_> = jsonrpsee::http_client::HttpClientBuilder::default()
-        .build("https://api.mngo.cloud:443/router").unwrap();
-
-    let params = rpc_params![1_u64, 2, 3];
-    let response: Result<String, _> = client.request("say_hello", params).await;
-    tracing::info!("r: {:?}", response);
-
 }
 
 mod test {
