@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::iter;
 use anyhow::Context;
 use jsonrpsee::{rpc_params, tracing};
@@ -24,16 +25,19 @@ async fn main() {
 
 // e.g. 0.0536755 for ETH/USDC
 fn calc_price(response: Vec<SwapQueryResult>) -> f64 {
-    assert_eq!(response.len(), 1);
-    let result = &response[0];
+    let best_route = response.into_iter()
+        .max_by(|x, y|
+            x.outAmount.parse::<u64>().unwrap().cmp(&y.outAmount.parse::<u64>().unwrap())
+        )
+        .expect("no outAmounts found");
 
     // TODO findMax(out) für buy
     // https://github.com/blockworks-foundation/mango-v4/blob/dev/ts/client/src/router.ts
     // prepareMangoRouterInstructions
 
     // should be same as amount (100000000)
-    let in_amount = result.inAmount.parse::<u64>().unwrap();
-    let out_amount = result.outAmount.parse::<u64>().unwrap();
+    let in_amount = best_route.inAmount.parse::<u64>().unwrap();
+    let out_amount = best_route.outAmount.parse::<u64>().unwrap();
 
     out_amount as f64 / in_amount as f64
 }
@@ -101,3 +105,29 @@ async fn make_jsonrpc_sample_call() {
 
 }
 
+mod test {
+    use crate::{calc_price, SwapQueryResult};
+
+    #[test]
+    fn test_best_route_single() {
+        let routes = vec![SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "6000".to_string() }];
+        assert_eq!(0.6, calc_price(routes));
+    }
+
+    #[test]
+    fn test_best_route_buy_highest() {
+        let routes1 = vec![
+            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "6000".to_string() },
+            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "7000".to_string() },
+        ];
+        assert_eq!(0.7, calc_price(routes1));
+
+        let routes2 = vec![
+            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "6000".to_string() },
+            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "7000".to_string() },
+        ];
+        assert_eq!(0.7, calc_price(routes2));
+
+    }
+
+}
