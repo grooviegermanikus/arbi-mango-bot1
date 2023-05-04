@@ -14,7 +14,7 @@ pub struct BuyPrice {
 
 
 // e.g. 0.000536755 ETH for 1 USDC
-fn calc_price1(response: Vec<SwapQueryResult>) -> f64 {
+fn calc_price_exactin(response: Vec<SwapQueryResult>) -> f64 {
     let route_with_highest_buy_price = response.into_iter()
         .max_by(|x, y|
             OrderedFloat(x.out_amount).cmp(&OrderedFloat(y.out_amount))
@@ -34,7 +34,7 @@ fn calc_price1(response: Vec<SwapQueryResult>) -> f64 {
 
 
 // e.g. price(USD) for 1 ETH asking for 0.001 ETH
-fn calc_price2(response: Vec<SwapQueryResult>) -> f64 {
+fn calc_price_exactout(response: Vec<SwapQueryResult>) -> f64 {
     let route_with_highest_buy_price = response.into_iter()
         .min_by(|x, y|
             OrderedFloat(x.in_amount).cmp(&OrderedFloat(y.in_amount))
@@ -111,7 +111,7 @@ pub async fn call_buy_usd() -> BuyPrice {
     match call1().await {
         Ok(res) =>
             BuyPrice {
-                price: calc_price1(res),
+                price: calc_price_exactin(res),
                 approx_timestamp: Instant::now(),
             },
         Err(err) => {
@@ -158,7 +158,7 @@ pub async fn call_buy_eth() -> BuyPrice {
     match call2().await {
         Ok(res) =>
             BuyPrice {
-                price: calc_price2(res),
+                price: calc_price_exactout(res),
                 approx_timestamp: Instant::now(),
             },
         Err(err) => {
@@ -168,26 +168,27 @@ pub async fn call_buy_eth() -> BuyPrice {
 }
 
 mod test {
+    use crate::services::asset_price_swap_buy::{calc_price_exactin, SwapQueryResult};
 
     #[test]
     fn test_best_route_single() {
-        let routes = vec![SwapQueryResult{ in_amount: 10000f64, out_amount: 6000f64 }];
-        assert_eq!(0.006, calc_price1(routes));
+        let routes = vec![SwapQueryResult { in_amount: 10000f64, out_amount: 6000f64 }];
+        assert_eq!(0.006, calc_price_exactin(routes));
     }
 
     #[test]
     fn test_best_route_buy_highest() {
         let routes1 = vec![
-            SwapQueryResult{ in_amount: 10000f64, out_amount: 4000f64 },
-            SwapQueryResult{ in_amount: 10000f64, out_amount: 8000f64 },
+            SwapQueryResult { in_amount: 10000f64, out_amount: 4000f64 },
+            SwapQueryResult { in_amount: 10000f64, out_amount: 8000f64 },
         ];
-        assert_eq!(0.008, calc_price1(routes1));
+        assert_eq!(0.008, calc_price_exactin(routes1));
 
         let routes2 = vec![
-            SwapQueryResult{ in_amount: 10000f64, out_amount: 4000f64 },
-            SwapQueryResult{ in_amount: 10000f64, out_amount: 8000f64 },
+            SwapQueryResult { in_amount: 10000f64, out_amount: 4000f64 },
+            SwapQueryResult { in_amount: 10000f64, out_amount: 8000f64 },
         ];
-        assert_eq!(0.008, calc_price1(routes2));
+        assert_eq!(0.008, calc_price_exactin(routes2));
 
     }
 
