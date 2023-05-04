@@ -4,6 +4,7 @@ use anyhow::Context;
 use ordered_float::OrderedFloat;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use crate::mango::{MINT_ADDRESS_ETH, MINT_ADDRESS_USDC};
 
 #[derive(Debug, Copy, Clone)]
 pub struct BuyPrice {
@@ -74,10 +75,6 @@ impl From<SwapQueryResultRaw> for SwapQueryResult {
 }
 
 async fn call1() -> anyhow::Result<Vec<SwapQueryResult>> {
-    // USDC
-    const input_mint: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-    // ETH
-    const output_mint: &str = "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs";
     const amount: u64 = 1_000_000; // 1 USD
     const wallet_address: &str = "11111111111111111111111111111111";
     const slippage: &str = "0.005";
@@ -86,8 +83,8 @@ async fn call1() -> anyhow::Result<Vec<SwapQueryResult>> {
     let quote = Client::new()
         .get("https://api.mngo.cloud/router/v1/swap")
         .query(&[
-            ("inputMint", input_mint.to_string()),
-            ("outputMint", output_mint.to_string()),
+            ("inputMint", MINT_ADDRESS_USDC.to_string()),
+            ("outputMint", MINT_ADDRESS_ETH.to_string()),
             ("amount", format!("{}", amount)),
             ("slippage", format!("{}", slippage)),
             ("feeBps", 0.to_string()),
@@ -121,10 +118,6 @@ pub async fn call_buy_usd() -> BuyPrice {
 }
 
 async fn call2() -> anyhow::Result<Vec<SwapQueryResult>> {
-    // USDC
-    const input_mint: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-    // ETH
-    const output_mint: &str = "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs";
     const amount: u64 = 100000;
     const wallet_address: &str = "11111111111111111111111111111111";
     const slippage: &str = "0.005";
@@ -134,8 +127,8 @@ async fn call2() -> anyhow::Result<Vec<SwapQueryResult>> {
         reqwest::Client::new()
             .get("https://api.mngo.cloud/router/v1/swap")
             .query(&[
-                ("inputMint", input_mint.to_string()),
-                ("outputMint", output_mint.to_string()),
+                ("inputMint", MINT_ADDRESS_USDC.to_string()),
+                ("outputMint", MINT_ADDRESS_ETH.to_string()),
                 ("amount", format!("{}", amount)),
                 ("slippage", format!("{}", slippage)),
                 ("feeBps", 0.to_string()),

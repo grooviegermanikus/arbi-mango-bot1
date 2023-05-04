@@ -17,21 +17,20 @@ const STARTUP_DELAY: Duration = Duration::from_secs(2);
 
 struct Coordinator {
     buy_price_stream: UnboundedReceiver<BuyPrice>,
-    sell_price_stream: UnboundedReceiver<SellPrice>,
 }
 
 pub async fn run_coordinator_service() {
     let (buy_price_xwrite, mut buy_price_xread) = unbounded_channel();
-    let (sell_price_xwrite, mut sell_price_xread) = unbounded_channel();
+
+    let last_ask_price_shared = Arc::new(RwLock::new(None));
+    let last_bid_price_shared = Arc::new(RwLock::new(None));
 
     let mut coo = Coordinator {
         buy_price_stream: buy_price_xread,
-        sell_price_stream: sell_price_xread,
     };
 
     let poll_buy_price = tokio::spawn({
         async move {
-            // startup delay
             sleep(STARTUP_DELAY).await;
             let mut interval = interval(Duration::from_secs(2));
             loop {
@@ -47,15 +46,10 @@ pub async fn run_coordinator_service() {
         }
     });
 
-    let last_ask_price_shared = Arc::new(RwLock::new(None));
-    let last_bid_price_shared = Arc::new(RwLock::new(None));
-
-
     let poll_sell_price = tokio::spawn({
         let last_ask_price = last_ask_price_shared.clone();
         let last_bid_price = last_bid_price_shared.clone();
         async move {
-            // startup delay
             sleep(STARTUP_DELAY).await;
             listen_orderbook_feed(mango::MARKET_ETH_PERP, last_ask_price, last_bid_price).await;
         }
@@ -83,8 +77,8 @@ pub async fn run_coordinator_service() {
                 // debug!("orderbook {:?}", orderbook_asks.iter().map(|(k, v)| (k.0, v)).collect::<Vec<_>>());
                 // info!("min ask price in orderbook {:?} (size={})", orderbook_asks.first_key_value().map(|p| p.0.0), orderbook_asks.len());
 
-                if let (Some(x), Some(y)) = (latest_buy, *orderbook_ask) {
-                    info!("sell vs buy: {:.2?}%", (y * x.price - 1.0) * 100.0 );
+                if let (Some(bid), Some(ask)) = (latest_buy, *orderbook_ask) {
+                    info!("sell vs buy: {:.2?}%", (ask * bid.price - 1.0) * 100.0 );
                 }
 
                 interval.tick().await;
