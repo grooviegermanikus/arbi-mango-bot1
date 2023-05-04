@@ -5,9 +5,10 @@ use mpsc::unbounded_channel;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
-use tokio::time::interval;
+use tokio::time::{interval, sleep};
 use crate::{mango, services};
 
+const STARTUP_DELAY: Duration = Duration::from_secs(2);
 
 struct Coordinator {
     buy_price_stream: UnboundedReceiver<f64>,
@@ -15,8 +16,6 @@ struct Coordinator {
 }
 
 pub async fn run_coordinator_service() {
-    info!("Starting coordination service...");
-
     let (buy_price_xwrite, mut buy_price_xread) = unbounded_channel();
     let (sell_price_xwrite, mut sell_price_xread) = unbounded_channel();
 
@@ -25,9 +24,10 @@ pub async fn run_coordinator_service() {
         sell_price_stream: sell_price_xread,
     };
 
-
     let poll_buy_price = tokio::spawn({
         async move {
+            // startup delay
+            sleep(STARTUP_DELAY).await;
             let mut interval = interval(Duration::from_secs(2));
             loop {
                 let price = services::asset_price_swap_buy::get_price_for_buy().await;
@@ -40,11 +40,12 @@ pub async fn run_coordinator_service() {
     });
 
     let poll_sell_price = tokio::spawn({
-       async move {
-           services::orderbook_stream_sell::listen_orderbook_feed(mango::MARKET_ETH_PERP, &sell_price_xwrite).await;
-       }
+        async move {
+            // startup delay
+            sleep(STARTUP_DELAY).await;
+            services::orderbook_stream_sell::listen_orderbook_feed(mango::MARKET_ETH_PERP, &sell_price_xwrite).await;
+        }
     });
-
 
     let main_poller = tokio::spawn({
         async move {
@@ -62,7 +63,6 @@ pub async fn run_coordinator_service() {
             }
         }
     });
-
 
     main_poller.await.unwrap();
 

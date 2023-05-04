@@ -46,14 +46,13 @@ pub struct OrderbookCheckpoint {
 #[serde(rename_all = "camelCase")]
 pub struct WsSubscription {
     pub command: String,
-    pub marketId: String,
+    pub market_id: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Subscriptions {
-    pub marketId: String,
-    // pub marketIds: String,
+    pub market_id: String,
 }
 
 // requires running "service-mango-orderbook" - see README
@@ -71,12 +70,12 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
     // subscriptions= {"command":"subscribe","marketId":"ESdnpnNLgTkBCZRuTJkZLi5wKEZ2z47SG3PJrhundSQ2"}
     let sub = &WsSubscription {
         command: "subscribe".to_string(),
-        marketId: market_id.to_string(),
+        market_id: market_id.to_string(),
     };
     // Ok(Text("{\"success\":false,\"message\":\"market not found\"}"))
     // Ok(Text("{\"success\":true,\"message\":\"subscribed\"}"))
 
-    socket.write_message(Message::text(json!(sub).to_string()));
+    socket.write_message(Message::text(json!(sub).to_string())).unwrap();
 
     loop {
         match socket.read_message() {
