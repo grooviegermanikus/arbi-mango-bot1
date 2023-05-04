@@ -3,6 +3,9 @@ use std::fmt::format;
 use std::iter;
 use std::time::Instant;
 use anyhow::Context;
+use jsonrpsee::core::client::ClientT;
+use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
+use jsonrpsee::rpc_params;
 use log::{debug, error, trace};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json, to_writer, Value};
@@ -18,8 +21,9 @@ use url::Url;
 #[derive(Debug, Copy, Clone)]
 pub struct SellPrice {
     // ETH in USDC - 1901,59495311
-    price: f64,
-    approx_timestamp: Instant,
+    pub price: f64,
+    pub quantity: f64,
+    pub approx_timestamp: Instant,
 }
 
 // mango-feeds
@@ -123,6 +127,7 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
             for ask in checkpoint.asks {
                 let price = SellPrice {
                     price: ask[0],
+                    quantity: ask[1],
                     // TODO derive from slot
                     approx_timestamp: Instant::now(),
                 };
@@ -137,7 +142,7 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
                 for ask in update.update {
                     let price = SellPrice {
                         price: ask[0],
-                        // TODO derive from slot
+                        quantity: ask[1],
                         approx_timestamp: Instant::now(),
                     };
                     sell_price_xwrite.send(price).unwrap();
@@ -154,6 +159,27 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
         // }
     }
 
+
+}
+
+
+#[derive(Serialize)]
+struct SerParam {
+    param_1: u8,
+    param_2: String,
+}
+
+async fn rpc_slot() {
+
+    // Build client
+    let client: HttpClient = HttpClientBuilder::default()
+        // TODO move
+        .build("http://api.mainnet-beta.solana.com:80")
+        .unwrap();
+
+    // e.g. 1683205217
+    let response: Result<u32, _> = client.request("getBlockTime",  rpc_params!(192071700)).await;
+    println!("response: {:?}", response);
 
 }
 
