@@ -16,17 +16,20 @@ use crate::services::orderbook_stream_sell::SellPrice;
 const STARTUP_DELAY: Duration = Duration::from_secs(2);
 
 struct Coordinator {
+    // swap price from router service
     buy_price_stream: UnboundedReceiver<BuyPrice>,
+    // orderbook
+    last_ask_price_shared: Arc<RwLock<Option<f64>>>,
+    last_bid_price_shared: Arc<RwLock<Option<f64>>>,
 }
 
 pub async fn run_coordinator_service() {
     let (buy_price_xwrite, mut buy_price_xread) = unbounded_channel();
 
-    let last_ask_price_shared = Arc::new(RwLock::new(None));
-    let last_bid_price_shared = Arc::new(RwLock::new(None));
-
     let mut coo = Coordinator {
         buy_price_stream: buy_price_xread,
+        last_ask_price_shared: Arc::new(RwLock::new(None)),
+        last_bid_price_shared: Arc::new(RwLock::new(None)),
     };
 
     let poll_buy_price = tokio::spawn({
@@ -47,8 +50,8 @@ pub async fn run_coordinator_service() {
     });
 
     let poll_sell_price = tokio::spawn({
-        let last_ask_price = last_ask_price_shared.clone();
-        let last_bid_price = last_bid_price_shared.clone();
+        let last_ask_price = coo.last_ask_price_shared.clone();
+        let last_bid_price = coo.last_bid_price_shared.clone();
         async move {
             sleep(STARTUP_DELAY).await;
             listen_orderbook_feed(mango::MARKET_ETH_PERP, last_ask_price, last_bid_price).await;
@@ -56,8 +59,8 @@ pub async fn run_coordinator_service() {
     });
 
     let main_poller = tokio::spawn({
-        let last_ask_price = last_ask_price_shared.clone();
-        let last_bid_price = last_bid_price_shared.clone();
+        let last_ask_price = coo.last_ask_price_shared.clone();
+        let last_bid_price = coo.last_bid_price_shared.clone();
         async move {
 
             let mut interval = interval(Duration::from_secs(2));
