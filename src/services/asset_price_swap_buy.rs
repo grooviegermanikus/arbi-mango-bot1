@@ -74,7 +74,7 @@ impl From<SwapQueryResultRaw> for SwapQueryResult {
     }
 }
 
-async fn call1() -> anyhow::Result<Vec<SwapQueryResult>> {
+async fn call_exactin() -> anyhow::Result<Vec<SwapQueryResult>> {
     const amount: u64 = 1_000_000; // 1 USD
     const wallet_address: &str = "11111111111111111111111111111111";
     const slippage: &str = "0.005";
@@ -105,7 +105,7 @@ async fn call1() -> anyhow::Result<Vec<SwapQueryResult>> {
 
 pub async fn call_buy_usd() -> BuyPrice {
 
-    match call1().await {
+    match call_exactin().await {
         Ok(res) =>
             BuyPrice {
                 price: calc_price_exactin(res),
@@ -117,7 +117,7 @@ pub async fn call_buy_usd() -> BuyPrice {
     }
 }
 
-async fn call2() -> anyhow::Result<Vec<SwapQueryResult>> {
+async fn call_exactout() -> anyhow::Result<Vec<SwapQueryResult>> {
     const amount: u64 = 100000;
     const wallet_address: &str = "11111111111111111111111111111111";
     const slippage: &str = "0.005";
@@ -148,7 +148,7 @@ async fn call2() -> anyhow::Result<Vec<SwapQueryResult>> {
 
 pub async fn call_buy_eth() -> BuyPrice {
 
-    match call2().await {
+    match call_exactout().await {
         Ok(res) =>
             BuyPrice {
                 price: calc_price_exactout(res),
@@ -161,28 +161,35 @@ pub async fn call_buy_eth() -> BuyPrice {
 }
 
 mod test {
-    use crate::services::asset_price_swap_buy::{calc_price_exactin, SwapQueryResult};
+    use crate::services::asset_price_swap_buy::{calc_price_exactin, call_buy_usd, SwapQueryResult};
 
     #[test]
     fn test_best_route_single() {
-        let routes = vec![SwapQueryResult { in_amount: 10000f64, out_amount: 6000f64 }];
+        let routes = vec![SwapQueryResult { in_amount: 10000_f64, out_amount: 6000_f64 }];
         assert_eq!(0.006, calc_price_exactin(routes));
     }
 
     #[test]
     fn test_best_route_buy_highest() {
         let routes1 = vec![
-            SwapQueryResult { in_amount: 10000f64, out_amount: 4000f64 },
-            SwapQueryResult { in_amount: 10000f64, out_amount: 8000f64 },
+            SwapQueryResult { in_amount: 10000_f64, out_amount: 4000_f64 },
+            SwapQueryResult { in_amount: 10000_f64, out_amount: 8000_f64 },
         ];
         assert_eq!(0.008, calc_price_exactin(routes1));
 
         let routes2 = vec![
-            SwapQueryResult { in_amount: 10000f64, out_amount: 4000f64 },
-            SwapQueryResult { in_amount: 10000f64, out_amount: 8000f64 },
+            SwapQueryResult { in_amount: 10000_f64, out_amount: 4000_f64 },
+            SwapQueryResult { in_amount: 10000_f64, out_amount: 8000_f64 },
         ];
         assert_eq!(0.008, calc_price_exactin(routes2));
 
+    }
+
+    #[tokio::test]
+    async fn test_call_buy_usd() {
+        let usd = call_buy_usd().await;
+        // 0.00053364
+        println!("USDETH: {:?}", usd);
     }
 
 }
