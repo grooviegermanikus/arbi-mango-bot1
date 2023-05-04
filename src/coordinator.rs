@@ -8,12 +8,13 @@ use tokio::task::JoinHandle;
 use tokio::time::{interval, sleep};
 use crate::{mango, services};
 use crate::services::asset_price_swap_buy::BuyPrice;
+use crate::services::orderbook_stream_sell::SellPrice;
 
 const STARTUP_DELAY: Duration = Duration::from_secs(2);
 
 struct Coordinator {
     buy_price_stream: UnboundedReceiver<BuyPrice>,
-    sell_price_stream: UnboundedReceiver<f64>,
+    sell_price_stream: UnboundedReceiver<SellPrice>,
 }
 
 pub async fn run_coordinator_service() {
@@ -80,10 +81,10 @@ fn drain_buy_feed(coo: &mut Coordinator) -> Option<BuyPrice> {
 }
 
 // drain feeds and get latest value
-fn drain_sell_feed(coo: &mut Coordinator) -> Option<f64> {
+fn drain_sell_feed(coo: &mut Coordinator) -> Option<SellPrice> {
     let mut latest = None;
     while let Ok(price) = coo.sell_price_stream.try_recv() {
-        trace!("drain sell price from feed {}", price);
+        trace!("drain sell price from feed {:?}", price);
         latest = Some(price);
     }
     latest

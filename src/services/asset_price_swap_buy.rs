@@ -6,8 +6,9 @@ use reqwest::{Client, Error, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::to_writer;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct BuyPrice {
+    // USDC in ETH - 0,00052587
     price: f64,
     approx_timestamp: Instant,
 }
@@ -30,7 +31,7 @@ pub async fn get_price_for_buy() -> BuyPrice {
     }
 }
 
-// e.g. 0.0536755 for ETH/USDC
+// e.g. 0.000536755 ETH for 1 USDC
 fn calc_price(response: Vec<SwapQueryResult>) -> f64 {
     let route_with_highest_buy_price = response.into_iter()
         .max_by(|x, y|
@@ -46,7 +47,11 @@ fn calc_price(response: Vec<SwapQueryResult>) -> f64 {
     let in_amount = route_with_highest_buy_price.inAmount.parse::<u64>().unwrap();
     let out_amount = route_with_highest_buy_price.outAmount.parse::<u64>().unwrap();
 
-    out_amount as f64 / in_amount as f64
+    let usd_decimals = 6;
+    let eth_decimals = 8;
+    let decimals = usd_decimals - eth_decimals;
+    let multiplier = 10f64.powf(decimals.into()) as f64;
+    out_amount as f64 / in_amount as f64 * multiplier
 }
 
 // see mango-v4 lib/client/src/jupiter.rs
@@ -99,22 +104,22 @@ mod test {
     #[test]
     fn test_best_route_single() {
         let routes = vec![SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "6000".to_string() }];
-        assert_eq!(0.6, calc_price(routes));
+        assert_eq!(0.006, calc_price(routes));
     }
 
     #[test]
     fn test_best_route_buy_highest() {
         let routes1 = vec![
-            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "6000".to_string() },
-            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "7000".to_string() },
+            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "4000".to_string() },
+            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "8000".to_string() },
         ];
-        assert_eq!(0.7, calc_price(routes1));
+        assert_eq!(0.008, calc_price(routes1));
 
         let routes2 = vec![
-            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "6000".to_string() },
-            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "7000".to_string() },
+            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "4000".to_string() },
+            SwapQueryResult{ inAmount: "10000".to_string(), outAmount: "8000".to_string() },
         ];
-        assert_eq!(0.7, calc_price(routes2));
+        assert_eq!(0.008, calc_price(routes2));
 
     }
 

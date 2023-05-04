@@ -15,8 +15,9 @@ use tokio_tungstenite::tungstenite::http::Uri;
 use tokio_tungstenite::tungstenite::stream::MaybeTlsStream;
 use url::Url;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct SellPrice {
+    // ETH in USDC - 1901,59495311
     price: f64,
     approx_timestamp: Instant,
 }
@@ -63,7 +64,7 @@ struct Subscriptions {
 }
 
 // requires running "service-mango-orderbook" - see README
-pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &UnboundedSender<f64>) {
+pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &UnboundedSender<SellPrice>) {
 
     let (mut socket, response) =
         connect(Url::parse("ws://127.0.0.1:8080").unwrap()).expect("Can't connect");
@@ -120,7 +121,12 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
             let checkpoint: OrderbookCheckpoint = serde_json::from_value(plain.clone()).expect("");
             debug!("chkpt asks: {:?}", checkpoint.asks);
             for ask in checkpoint.asks {
-                sell_price_xwrite.send(ask[0]).unwrap();
+                let price = SellPrice {
+                    price: ask[0],
+                    // TODO derive from slot
+                    approx_timestamp: Instant::now(),
+                };
+                sell_price_xwrite.send(price).unwrap();
             }
         }
 
@@ -129,7 +135,12 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
             if update.side == OrderbookSide::Ask {
                 debug!("update({:?}): {:?}", update.slot, update.update);
                 for ask in update.update {
-                    sell_price_xwrite.send(ask[0]).unwrap();
+                    let price = SellPrice {
+                        price: ask[0],
+                        // TODO derive from slot
+                        approx_timestamp: Instant::now(),
+                    };
+                    sell_price_xwrite.send(price).unwrap();
                 }
             }
         }
