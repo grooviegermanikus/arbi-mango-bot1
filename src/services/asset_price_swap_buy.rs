@@ -1,18 +1,29 @@
 use std::cmp::Ordering;
 use std::iter;
+use std::time::Instant;
 use anyhow::Context;
 use reqwest::{Client, Error, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::to_writer;
 
+#[derive(Debug)]
+pub struct BuyPrice {
+    price: f64,
+    approx_timestamp: Instant,
+}
+
 // you buy x ETH for y USDC
 
-pub async fn get_price_for_buy() -> f64 {
+pub async fn get_price_for_buy() -> BuyPrice {
     // TODO add retry
     let result = make_http_call().await;
 
     match result {
-        Ok(res) => calc_price(res),
+        Ok(res) =>
+            BuyPrice {
+                price: calc_price(res),
+                approx_timestamp: Instant::now(),
+            },
         Err(err) => {
             panic!("Error getting price from mango swap: {:?}", err);
         }

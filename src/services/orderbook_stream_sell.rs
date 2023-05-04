@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt::format;
 use std::iter;
+use std::time::Instant;
 use anyhow::Context;
 use log::{debug, error, trace};
 use serde::{Deserialize, Serialize};
@@ -14,18 +15,24 @@ use tokio_tungstenite::tungstenite::http::Uri;
 use tokio_tungstenite::tungstenite::stream::MaybeTlsStream;
 use url::Url;
 
+#[derive(Debug)]
+pub struct SellPrice {
+    price: f64,
+    approx_timestamp: Instant,
+}
+
 // mango-feeds
-pub type OrderbookLevel = [f64; 2];
+type OrderbookLevel = [f64; 2];
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub enum OrderbookSide {
+enum OrderbookSide {
     Bid = 0,
     Ask = 1,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct OrderbookUpdate {
+struct OrderbookUpdate {
     pub market: String,
     pub side: OrderbookSide,
     pub update: Vec<OrderbookLevel>,
@@ -34,7 +41,7 @@ pub struct OrderbookUpdate {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct OrderbookCheckpoint {
+struct OrderbookCheckpoint {
     pub market: String,
     pub bids: Vec<OrderbookLevel>,
     pub asks: Vec<OrderbookLevel>,
@@ -44,14 +51,14 @@ pub struct OrderbookCheckpoint {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct WsSubscription {
+struct WsSubscription {
     pub command: String,
     pub market_id: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct Subscriptions {
+struct Subscriptions {
     pub market_id: String,
 }
 

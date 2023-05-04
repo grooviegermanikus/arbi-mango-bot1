@@ -7,11 +7,12 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, sleep};
 use crate::{mango, services};
+use crate::services::asset_price_swap_buy::BuyPrice;
 
 const STARTUP_DELAY: Duration = Duration::from_secs(2);
 
 struct Coordinator {
-    buy_price_stream: UnboundedReceiver<f64>,
+    buy_price_stream: UnboundedReceiver<BuyPrice>,
     sell_price_stream: UnboundedReceiver<f64>,
 }
 
@@ -69,11 +70,11 @@ pub async fn run_coordinator_service() {
 }
 
 // drain feeds and get latest value
-fn drain_buy_feed(coo: &mut Coordinator) -> Option<f64> {
+fn drain_buy_feed(coo: &mut Coordinator) -> Option<BuyPrice> {
     let mut latest = None;
-    while let Ok(foo) = coo.buy_price_stream.try_recv() {
-        trace!("drain buy price from feed {:?}", foo);
-        latest = Some(foo);
+    while let Ok(price) = coo.buy_price_stream.try_recv() {
+        trace!("drain buy price from feed {:?}", price);
+        latest = Some(price);
     }
     latest
 }
@@ -81,9 +82,9 @@ fn drain_buy_feed(coo: &mut Coordinator) -> Option<f64> {
 // drain feeds and get latest value
 fn drain_sell_feed(coo: &mut Coordinator) -> Option<f64> {
     let mut latest = None;
-    while let Ok(foo) = coo.sell_price_stream.try_recv() {
-        trace!("drain sell price from feed {:?}", foo);
-        latest = Some(foo);
+    while let Ok(price) = coo.sell_price_stream.try_recv() {
+        trace!("drain sell price from feed {}", price);
+        latest = Some(price);
     }
     latest
 }
