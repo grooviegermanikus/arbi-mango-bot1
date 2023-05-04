@@ -1,13 +1,15 @@
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 use std::time::Duration;
 use log::{debug, info, trace};
 use std::time;
 use mpsc::unbounded_channel;
 use ordered_float::OrderedFloat;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, sleep};
+use services::orderbook_stream_sell::listen_orderbook_feed;
 use crate::{mango, services};
 use crate::services::asset_price_swap_buy::BuyPrice;
 use crate::services::orderbook_stream_sell::SellPrice;
@@ -46,15 +48,23 @@ pub async fn run_coordinator_service() {
         }
     });
 
+    let last_ask_price_shared = Arc::new(RwLock::new(None));
+    let last_bid_price_shared = Arc::new(RwLock::new(None));
+
+
     let poll_sell_price = tokio::spawn({
+        let last_ask_price = last_ask_price_shared.clone();
+        let last_bid_price = last_bid_price_shared.clone();
         async move {
             // startup delay
             sleep(STARTUP_DELAY).await;
-            services::orderbook_stream_sell::listen_orderbook_feed(mango::MARKET_ETH_PERP, &sell_price_xwrite).await;
+            listen_orderbook_feed(mango::MARKET_ETH_PERP, last_ask_price, last_bid_price).await;
         }
     });
 
     let main_poller = tokio::spawn({
+        let last_ask_price = last_ask_price_shared.clone();
+        let last_bid_price = last_bid_price_shared.clone();
         async move {
             let mut orderbook_asks: BTreeMap<OrderedFloat<f64>, f64> = BTreeMap::new();
             
@@ -65,10 +75,15 @@ pub async fn run_coordinator_service() {
                 let latest_buy = drain_buy_feed(&mut coo);
                 info!("latest buy price {:?}", latest_buy);
 
+                let orderbook_ask = last_ask_price.read().await;
+                println!("orderbook best ask {:?}", *orderbook_ask);
+
+                let orderbook_bid = last_bid_price.read().await;
+                println!("orderbook best bid {:?}", *orderbook_bid);
+
                 // from orderbook
-                update_orderbook_from_feed(&mut coo, &mut orderbook_asks);
-                debug!("orderbook {:?}", orderbook_asks.iter().map(|(k, v)| (k.0, v)).collect::<Vec<_>>());
-                info!("min ask price in orderbook {:?} (size={})", orderbook_asks.first_key_value().map(|p| p.0.0), orderbook_asks.len());
+                // debug!("orderbook {:?}", orderbook_asks.iter().map(|(k, v)| (k.0, v)).collect::<Vec<_>>());
+                // info!("min ask price in orderbook {:?} (size={})", orderbook_asks.first_key_value().map(|p| p.0.0), orderbook_asks.len());
 
                 if let (Some(x), Some(y)) = (latest_buy, orderbook_asks.first_key_value()) {
                     info!("sell vs buy: {:.2?}%", (y.0.0 * x.price - 1.0) * 100.0 );
@@ -93,14 +108,3 @@ fn drain_buy_feed(coo: &mut Coordinator) -> Option<BuyPrice> {
     latest
 }
 
-// drain feeds and get latest value
-fn update_orderbook_from_feed(coo: &mut Coordinator, orderbook: &mut BTreeMap<OrderedFloat<f64>, f64>) {
-    while let Ok(price) = coo.sell_price_stream.try_recv() {
-        trace!("drain sell price from feed {:?}", price);
-        if price.quantity != 0.0 {
-            orderbook.insert(OrderedFloat(price.price), price.quantity);
-        } else {
-            orderbook.remove(&OrderedFloat(price.price));
-        }
-    }
-}

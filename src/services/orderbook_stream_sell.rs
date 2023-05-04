@@ -1,16 +1,20 @@
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::fmt::format;
 use std::iter;
+use std::sync::Arc;
 use std::time::Instant;
 use anyhow::Context;
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::rpc_params;
-use log::{debug, error, trace};
+use log::{debug, error, info, trace};
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json, to_writer, Value};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::RwLock;
 use tokio_tungstenite::{connect_async, tungstenite};
 use tokio_tungstenite::tungstenite::{client, connect, Message, WebSocket};
 use tokio_tungstenite::tungstenite::handshake::client::Response;
@@ -67,8 +71,42 @@ struct Subscriptions {
     pub market_id: String,
 }
 
+#[derive(Default)]
+struct Orderbook {
+    pub bids: BTreeMap<OrderedFloat<f64>, f64>,
+    pub asks: BTreeMap<OrderedFloat<f64>, f64>,
+}
+
+impl Orderbook {
+    fn update_bid_price(&mut self, price: f64, quantity: f64) {
+        let price = OrderedFloat(price);
+        if quantity != 0.0 {
+            self.bids.insert(price, quantity);
+        } else {
+            self.bids.remove(&price);
+        }
+    }
+    fn update_ask_price(&mut self, price: f64, quantity: f64) {
+        let price = OrderedFloat(price);
+        if quantity != 0.0 {
+            self.asks.insert(price, quantity);
+        } else {
+            self.asks.remove(&price);
+        }
+    }
+    fn dump(&self) {
+        info!("orderbook asks {:?}", self.asks.iter().map(|(k, v)| (k.0, v)).collect::<Vec<_>>());
+        info!("orderbook bids {:?}", self.bids.iter().map(|(k, v)| (k.0, v)).collect::<Vec<_>>());
+
+
+    }
+
+}
+
 // requires running "service-mango-orderbook" - see README
-pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &UnboundedSender<SellPrice>) {
+pub async fn listen_orderbook_feed(market_id: &str,
+                                   lowest_ask_price: Arc<RwLock<Option<f64>>>,
+                                   lowest_bid_price: Arc<RwLock<Option<f64>>>) {
 
     let (mut socket, response) =
         connect(Url::parse("ws://127.0.0.1:8080").unwrap()).expect("Can't connect");
@@ -88,6 +126,8 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
     // Ok(Text("{\"success\":true,\"message\":\"subscribed\"}"))
 
     socket.write_message(Message::text(json!(sub).to_string())).unwrap();
+
+    let mut orderbook: Orderbook = Orderbook::default();
 
     loop {
         match socket.read_message() {
@@ -123,7 +163,6 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
 
         if is_checkpoint_message {
             let checkpoint: OrderbookCheckpoint = serde_json::from_value(plain.clone()).expect("");
-            debug!("chkpt asks: {:?}", checkpoint.asks);
             for ask in checkpoint.asks {
                 let price = SellPrice {
                     price: ask[0],
@@ -131,23 +170,52 @@ pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &Unbounde
                     // TODO derive from slot
                     approx_timestamp: Instant::now(),
                 };
-                sell_price_xwrite.send(price).unwrap();
+                orderbook.update_ask_price(price.price, price.quantity);
+                let mut lock = lowest_ask_price.write().await;
+                *lock = Some(price.price);
+
+                // sell_price_xwrite.send(price).unwrap();
+            }
+            for bid in checkpoint.bids {
+                let price = SellPrice {
+                    price: bid[0],
+                    quantity: bid[1],
+                    // TODO derive from slot
+                    approx_timestamp: Instant::now(),
+                };
+                orderbook.update_bid_price(price.price, price.quantity);
+                let mut lock = lowest_bid_price.write().await;
+                *lock = Some(price.price);
+                // sell_price_xwrite.send(price).unwrap();
             }
         }
 
         if is_update_message {
             let update: OrderbookUpdate = serde_json::from_value(plain.clone()).expect(format!("Can't convert json <{}>", msg).as_str());
-            if update.side == OrderbookSide::Ask {
-                debug!("update({:?}): {:?}", update.slot, update.update);
-                for ask in update.update {
-                    let price = SellPrice {
-                        price: ask[0],
-                        quantity: ask[1],
-                        approx_timestamp: Instant::now(),
-                    };
-                    sell_price_xwrite.send(price).unwrap();
+
+            debug!("update({:?}): {:?}", update.slot, update.update);
+            for data in update.update {
+                let price = SellPrice {
+                    price: data[0],
+                    quantity: data[1],
+                    approx_timestamp: Instant::now(),
+                };
+                if update.side == OrderbookSide::Ask {
+                    orderbook.update_ask_price(price.price, price.quantity);
+                    let mut lock = lowest_ask_price.write().await;
+                    *lock = Some(price.price);
                 }
+                if update.side == OrderbookSide::Bid {
+                    orderbook.update_bid_price(price.price, price.quantity);
+                    let mut lock = lowest_bid_price.write().await;
+                    *lock = Some(price.price);
+                }
+
+                // TODO remove
+                orderbook.dump();
+                // sell_price_xwrite.send(price).unwrap();
             }
+
         }
 
 

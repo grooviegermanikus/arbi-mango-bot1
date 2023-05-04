@@ -8,7 +8,9 @@ edition = "2021"
 [dependencies]
 log = "0.4.17"
 env_logger = "0.9.1"
+itertools = "0.10.5"
 anyhow = "1.0"
+ordered-float = "3.7.0"
 tokio = { version = "1.14.1", features = ["rt-multi-thread", "time", "macros", "sync"] }
 tokio-tungstenite = { version = "0.17.2" }
 url = "2.3.1"
@@ -16,4 +18,3 @@ reqwest = { version = "0.11.17", features = ["json"] }
 serde = { version = "1.0.141", features = ["derive"] }
 serde_json = "1.0.82"
 jsonrpsee = { version = "0.18.1", features = ["http-client", "macros"] }
-ordered-float = "3.7.0"

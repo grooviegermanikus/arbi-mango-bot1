@@ -174,21 +174,21 @@ mod test {
 
     #[test]
     fn test_best_route_single() {
-        let routes = vec![SwapQueryResult{ in_amount: "10000".to_string(), out_amount: "6000".to_string() }];
+        let routes = vec![SwapQueryResult{ in_amount: 10000f64, out_amount: 6000f64 }];
         assert_eq!(0.006, calc_price1(routes));
     }
 
     #[test]
     fn test_best_route_buy_highest() {
         let routes1 = vec![
-            SwapQueryResult{ in_amount: "10000".to_string(), out_amount: "4000".to_string() },
-            SwapQueryResult{ in_amount: "10000".to_string(), out_amount: "8000".to_string() },
+            SwapQueryResult{ in_amount: 10000f64, out_amount: 4000f64 },
+            SwapQueryResult{ in_amount: 10000f64, out_amount: 8000f64 },
         ];
         assert_eq!(0.008, calc_price1(routes1));
 
         let routes2 = vec![
-            SwapQueryResult{ in_amount: "10000".to_string(), out_amount: "4000".to_string() },
-            SwapQueryResult{ in_amount: "10000".to_string(), out_amount: "8000".to_string() },
+            SwapQueryResult{ in_amount: 10000f64, out_amount: 4000f64 },
+            SwapQueryResult{ in_amount: 10000f64, out_amount: 8000f64 },
         ];
         assert_eq!(0.008, calc_price1(routes2));
 
