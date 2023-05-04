@@ -1,15 +1,14 @@
-use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
+
 use log::{debug, info, trace};
-use std::time;
 use mpsc::unbounded_channel;
-use ordered_float::OrderedFloat;
 use tokio::sync::{mpsc, RwLock};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio::task::JoinHandle;
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::{interval, sleep};
+
 use services::orderbook_stream_sell::listen_orderbook_feed;
+
 use crate::{mango, services};
 use crate::services::asset_price_swap_buy::BuyPrice;
 use crate::services::orderbook_stream_sell::SellPrice;
@@ -66,8 +65,7 @@ pub async fn run_coordinator_service() {
         let last_ask_price = last_ask_price_shared.clone();
         let last_bid_price = last_bid_price_shared.clone();
         async move {
-            let mut orderbook_asks: BTreeMap<OrderedFloat<f64>, f64> = BTreeMap::new();
-            
+
             let mut interval = interval(Duration::from_secs(2));
             info!("Entering coordinator loop (interval={:?}) ...", interval.period());
             loop {
@@ -76,17 +74,17 @@ pub async fn run_coordinator_service() {
                 info!("latest buy price {:?}", latest_buy);
 
                 let orderbook_ask = last_ask_price.read().await;
-                println!("orderbook best ask {:?}", *orderbook_ask);
+                info!("orderbook best ask {:?}", *orderbook_ask);
 
                 let orderbook_bid = last_bid_price.read().await;
-                println!("orderbook best bid {:?}", *orderbook_bid);
+                info!("orderbook best bid {:?}", *orderbook_bid);
 
                 // from orderbook
                 // debug!("orderbook {:?}", orderbook_asks.iter().map(|(k, v)| (k.0, v)).collect::<Vec<_>>());
                 // info!("min ask price in orderbook {:?} (size={})", orderbook_asks.first_key_value().map(|p| p.0.0), orderbook_asks.len());
 
-                if let (Some(x), Some(y)) = (latest_buy, orderbook_asks.first_key_value()) {
-                    info!("sell vs buy: {:.2?}%", (y.0.0 * x.price - 1.0) * 100.0 );
+                if let (Some(x), Some(y)) = (latest_buy, *orderbook_ask) {
+                    info!("sell vs buy: {:.2?}%", (y * x.price - 1.0) * 100.0 );
                 }
 
                 interval.tick().await;

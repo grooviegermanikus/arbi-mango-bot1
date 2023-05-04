@@ -1,25 +1,17 @@
-use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::fmt::format;
-use std::iter;
 use std::sync::Arc;
 use std::time::Instant;
-use anyhow::Context;
+
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::rpc_params;
 use log::{debug, error, info, trace};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, json, to_writer, Value};
-use tokio::net::TcpStream;
-use tokio::sync::mpsc::UnboundedSender;
+use serde_json::{from_str, json, Value};
 use tokio::sync::RwLock;
-use tokio_tungstenite::{connect_async, tungstenite};
-use tokio_tungstenite::tungstenite::{client, connect, Message, WebSocket};
-use tokio_tungstenite::tungstenite::handshake::client::Response;
-use tokio_tungstenite::tungstenite::http::Uri;
-use tokio_tungstenite::tungstenite::stream::MaybeTlsStream;
+use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::tungstenite::{connect, Message};
 use url::Url;
 
 #[derive(Debug, Copy, Clone)]
@@ -237,7 +229,7 @@ struct SerParam {
     param_2: String,
 }
 
-async fn rpc_slot() {
+async fn _rpc_slot() {
 
     // Build client
     let client: HttpClient = HttpClientBuilder::default()

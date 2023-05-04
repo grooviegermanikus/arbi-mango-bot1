@@ -1,11 +1,9 @@
-use std::cmp::Ordering;
-use std::iter;
 use std::time::Instant;
+
 use anyhow::Context;
 use ordered_float::OrderedFloat;
-use reqwest::{Client, Error, RequestBuilder, Response};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::to_writer;
 
 #[derive(Debug, Copy, Clone)]
 pub struct BuyPrice {
@@ -170,7 +168,6 @@ pub async fn call_buy_eth() -> BuyPrice {
 }
 
 mod test {
-    use crate::services::asset_price_swap_buy::{calc_price1, SwapQueryResult};
 
     #[test]
     fn test_best_route_single() {
