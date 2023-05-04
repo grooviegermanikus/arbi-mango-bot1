@@ -59,23 +59,6 @@ async fn make_http_call() -> anyhow::Result<Vec<SwapQueryResult>> {
     const slippage: &str = "0.005";
 
     // see mango-v4 -> router.ts
-    let request =
-        reqwest::Client::new()
-            .get("https://api.mngo.cloud/router/v1/swap")
-            .query(&[
-                ("inputMint", input_mint.to_string()),
-                ("outputMint", output_mint.to_string()),
-                ("amount", format!("{}", amount)),
-                ("slippage", format!("{}", slippage)),
-                ("feeBps", 0.to_string()),
-                ("mode", "ExactIn".to_string()),
-                ("wallet", wallet_address.to_string()),
-                ("otherAmountThreshold", 0.to_string()), // 'ExactIn' ? 0 : MAX_INTEGER
-            ])
-            .build();
-
-    println!("request {:?}", request);
-
     let quote =
         reqwest::Client::new()
             .get("https://api.mngo.cloud/router/v1/swap")

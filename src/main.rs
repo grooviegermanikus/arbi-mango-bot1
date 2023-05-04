@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::fmt::format;
 use std::iter;
 use anyhow::Context;
+use env_logger::Env;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json, to_writer, Value};
 use tokio::net::TcpStream;
@@ -18,14 +19,9 @@ mod coordinator;
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    // env_logger::Builder::from_env(Env::default().default_filter_or("debug,reqwest=info")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("arbi_mango_bot1=info")).init();
 
     coordinator::run_coordinator_service().await;
 }
 
-async fn _simple_test() {
-    let price = services::asset_price_swap_buy::get_price_for_buy().await;
-    println!("price {:?}", price); // 0.0536755
-
-    services::orderbook_stream_sell::listen_orderbook_feed(mango::MARKET_ETH_PERP);
-}

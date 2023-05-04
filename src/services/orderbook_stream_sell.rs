@@ -2,9 +2,11 @@ use std::cmp::Ordering;
 use std::fmt::format;
 use std::iter;
 use anyhow::Context;
+use log::{debug, error, trace};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json, to_writer, Value};
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::{connect_async, tungstenite};
 use tokio_tungstenite::tungstenite::{client, connect, Message, WebSocket};
 use tokio_tungstenite::tungstenite::handshake::client::Response;
@@ -54,10 +56,8 @@ pub struct Subscriptions {
     // pub marketIds: String,
 }
 
-// requires running "service-mango-orderbook"
-//
-// cargo run --bin service-mango-orderbook service-mango-orderbook/conf/test-config.toml
-pub fn listen_orderbook_feed(market_id: &str) {
+// requires running "service-mango-orderbook" - see README
+pub async fn listen_orderbook_feed(market_id: &str, sell_price_xwrite: &UnboundedSender<f64>) {
 
     let (mut socket, response) =
         connect(Url::parse("ws://127.0.0.1:8080").unwrap()).expect("Can't connect");
@@ -81,17 +81,17 @@ pub fn listen_orderbook_feed(market_id: &str) {
     loop {
         match socket.read_message() {
             Ok(msg) => {
-                println!("Received: {}", msg);
+                trace!("Received: {}", msg);
             }
             Err(e) => {
                 match e {
                     tungstenite::Error::ConnectionClosed => {
-                        println!("Connection closed");
+                        error!("Connection closed");
                         break;
                     }
                     _ => {}
                 }
-                println!("Error reading message: {:?}", e);
+                error!("Error reading message: {:?}", e);
                 break;
             }
         }
@@ -112,16 +112,19 @@ pub fn listen_orderbook_feed(market_id: &str) {
 
         if is_checkpoint_message {
             let checkpoint: OrderbookCheckpoint = serde_json::from_value(plain.clone()).expect("");
-            // println!("chkpt bids: {:?}", checkpoint.bids);
-            println!("chkpt asks: {:?}", checkpoint.asks);
+            debug!("chkpt asks: {:?}", checkpoint.asks);
+            for ask in checkpoint.asks {
+                sell_price_xwrite.send(ask[0]).unwrap();
+            }
         }
 
         if is_update_message {
             let update: OrderbookUpdate = serde_json::from_value(plain.clone()).expect(format!("Can't convert json <{}>", msg).as_str());
-            // println!("{:?}", msg);
-            // let update: OrderbookUpdate = from_str::<OrderbookUpdate>(&msg).expect("Can't parse to JSON");
             if update.side == OrderbookSide::Ask {
-                println!("update({:?}): {:?}", update.slot, update.update);
+                debug!("update({:?}): {:?}", update.slot, update.update);
+                for ask in update.update {
+                    sell_price_xwrite.send(ask[0]).unwrap();
+                }
             }
         }
 
