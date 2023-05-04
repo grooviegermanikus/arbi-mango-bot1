@@ -18,12 +18,14 @@ mod coordinator;
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
 
+    coordinator::run_coordinator_service().await;
+}
+
+async fn _simple_test() {
     let price = services::asset_price_swap_buy::get_price_for_buy().await;
     println!("price {:?}", price); // 0.0536755
 
     services::orderbook_stream_sell::listen_orderbook_feed(mango::MARKET_ETH_PERP);
-
-    coordinator::run_coordinator_service();
-
 }

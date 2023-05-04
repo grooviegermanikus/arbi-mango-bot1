@@ -1,14 +1,22 @@
 use std::cmp::Ordering;
 use std::iter;
 use anyhow::Context;
+use reqwest::{Client, Error, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::to_writer;
 
 // you buy x ETH for y USDC
 
 pub async fn get_price_for_buy() -> f64 {
-    let response = make_http_call().await.expect("http call failed");
-    calc_price(response)
+    // TODO add retry
+    let result = make_http_call().await;
+
+    match result {
+        Ok(res) => calc_price(res),
+        Err(err) => {
+            panic!("Error getting price from mango swap: {:?}", err);
+        }
+    }
 }
 
 // e.g. 0.0536755 for ETH/USDC
@@ -51,6 +59,23 @@ async fn make_http_call() -> anyhow::Result<Vec<SwapQueryResult>> {
     const slippage: &str = "0.005";
 
     // see mango-v4 -> router.ts
+    let request =
+        reqwest::Client::new()
+            .get("https://api.mngo.cloud/router/v1/swap")
+            .query(&[
+                ("inputMint", input_mint.to_string()),
+                ("outputMint", output_mint.to_string()),
+                ("amount", format!("{}", amount)),
+                ("slippage", format!("{}", slippage)),
+                ("feeBps", 0.to_string()),
+                ("mode", "ExactIn".to_string()),
+                ("wallet", wallet_address.to_string()),
+                ("otherAmountThreshold", 0.to_string()), // 'ExactIn' ? 0 : MAX_INTEGER
+            ])
+            .build();
+
+    println!("request {:?}", request);
+
     let quote =
         reqwest::Client::new()
             .get("https://api.mngo.cloud/router/v1/swap")

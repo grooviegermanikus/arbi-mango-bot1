@@ -110,7 +110,7 @@ pub fn listen_orderbook_feed(market_id: &str) {
         let is_update_message = plain.get("update").is_some();
 
 
-        if (is_checkpoint_message) {
+        if is_checkpoint_message {
             let checkpoint: OrderbookCheckpoint = serde_json::from_value(plain.clone()).expect("");
             // println!("chkpt bids: {:?}", checkpoint.bids);
             println!("chkpt asks: {:?}", checkpoint.asks);
