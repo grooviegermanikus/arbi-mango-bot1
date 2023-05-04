@@ -34,10 +34,10 @@ pub async fn run_coordinator_service() {
             sleep(STARTUP_DELAY).await;
             let mut interval = interval(Duration::from_secs(2));
             loop {
-                let price = services::asset_price_swap_buy::get_price_for_buy_eth().await;
+                let price = services::asset_price_swap_buy::call_buy_usd().await;
                 println!("buy price for eth {:?}", price);
                 // TODO use it!
-                println!("buy price for usd {:?}", services::asset_price_swap_buy::get_price_for_buy_usd().await);
+                println!("buy price for usd {:?}", services::asset_price_swap_buy::call_buy_eth().await);
 
                 buy_price_xwrite.send(price).unwrap();
 

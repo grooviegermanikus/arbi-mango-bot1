@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::iter;
 use std::time::Instant;
 use anyhow::Context;
+use ordered_float::OrderedFloat;
 use reqwest::{Client, Error, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::to_writer;
@@ -14,53 +15,17 @@ pub struct BuyPrice {
 }
 
 
-pub async fn get_price_for_buy_eth() -> BuyPrice {
-    // TODO add retry
-    let result = call_buy_usd().await;
-
-    match result {
-        Ok(res) =>
-            BuyPrice {
-                price: calc_price1(res),
-                approx_timestamp: Instant::now(),
-            },
-        Err(err) => {
-            panic!("Error getting price from mango swap: {:?}", err);
-        }
-    }
-}
-
-pub async fn get_price_for_buy_usd() -> BuyPrice {
-    // TODO add retry
-    let result = call_buy_eth().await;
-
-    match result {
-        Ok(res) =>
-            BuyPrice {
-                price: calc_price2(res),
-                approx_timestamp: Instant::now(),
-            },
-        Err(err) => {
-            panic!("Error getting price from mango swap: {:?}", err);
-        }
-    }
-}
-
 // e.g. 0.000536755 ETH for 1 USDC
 fn calc_price1(response: Vec<SwapQueryResult>) -> f64 {
     let route_with_highest_buy_price = response.into_iter()
         .max_by(|x, y|
-            x.out_amount.parse::<u64>().unwrap().cmp(&y.out_amount.parse::<u64>().unwrap())
+            OrderedFloat(x.out_amount).cmp(&OrderedFloat(y.out_amount))
         )
         .expect("no outAmounts found");
 
-    // TODO findMax(out) für buy
-    // https://github.com/blockworks-foundation/mango-v4/blob/dev/ts/client/src/router.ts
-    // prepareMangoRouterInstructions
-
     // should be same as requested amount (100000000)
-    let in_amount = route_with_highest_buy_price.in_amount.parse::<u64>().unwrap();
-    let out_amount = route_with_highest_buy_price.out_amount.parse::<u64>().unwrap();
+    let in_amount = route_with_highest_buy_price.in_amount;
+    let out_amount = route_with_highest_buy_price.out_amount;
 
     let usd_decimals = 6;
     let eth_decimals = 8;
@@ -73,21 +38,13 @@ fn calc_price1(response: Vec<SwapQueryResult>) -> f64 {
 // e.g. price(USD) for 1 ETH asking for 0.001 ETH
 fn calc_price2(response: Vec<SwapQueryResult>) -> f64 {
     let route_with_highest_buy_price = response.into_iter()
-        .max_by(|x, y|
-            x.out_amount.parse::<u64>().unwrap().cmp(&y.out_amount.parse::<u64>().unwrap())
+        .min_by(|x, y|
+            OrderedFloat(x.in_amount).cmp(&OrderedFloat(y.in_amount))
         )
-        .expect("no outAmounts found");
+        .expect("no inAmounts found");
 
-    // TODO findMax(out) für buy
-    // https://github.com/blockworks-foundation/mango-v4/blob/dev/ts/client/src/router.ts
-    // prepareMangoRouterInstructions
-
-    let in_amount = route_with_highest_buy_price.in_amount.parse::<u64>().unwrap();
-    let out_amount = route_with_highest_buy_price.out_amount.parse::<u64>().unwrap();
-
-    println!("in_amount: {}", in_amount);
-    println!("out_amount: {}", out_amount);
-    println!("out_amount: {}", out_amount as f64/10f64.powf(8.into()) as f64);
+    let in_amount = route_with_highest_buy_price.in_amount;
+    let out_amount = route_with_highest_buy_price.out_amount;
 
     let usd_decimals = 6;
     let eth_decimals = 8;
@@ -99,15 +56,26 @@ fn calc_price2(response: Vec<SwapQueryResult>) -> f64 {
 // see mango-v4 lib/client/src/jupiter.rs
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct SwapQueryResult {
-
+struct SwapQueryResultRaw {
     in_amount: String,
     out_amount: String,
-
 }
 
-async fn call_buy_usd() -> anyhow::Result<Vec<SwapQueryResult>> {
+struct SwapQueryResult {
+    in_amount: f64,
+    out_amount: f64,
+}
 
+impl From<SwapQueryResultRaw> for SwapQueryResult {
+    fn from(value: SwapQueryResultRaw) -> Self {
+        SwapQueryResult {
+            in_amount: value.in_amount.parse::<f64>().unwrap(),
+            out_amount: value.out_amount.parse::<f64>().unwrap(),
+        }
+    }
+}
+
+async fn call1() -> anyhow::Result<Vec<SwapQueryResult>> {
     // USDC
     const input_mint: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
     // ETH
@@ -117,31 +85,44 @@ async fn call_buy_usd() -> anyhow::Result<Vec<SwapQueryResult>> {
     const slippage: &str = "0.005";
 
     // see mango-v4 -> router.ts
-    let quote =
-        reqwest::Client::new()
-            .get("https://api.mngo.cloud/router/v1/swap")
-            .query(&[
-                ("inputMint", input_mint.to_string()),
-                ("outputMint", output_mint.to_string()),
-                ("amount", format!("{}", amount)),
-                ("slippage", format!("{}", slippage)),
-                ("feeBps", 0.to_string()),
-                ("mode", "ExactIn".to_string()),
-                ("wallet", wallet_address.to_string()),
-                ("otherAmountThreshold", 0.to_string()), // 'ExactIn' ? 0 : MAX_INTEGER
-            ])
-            .send()
-            .await
-            .context("swap price request to jupiter")?
-            .json::<Vec<SwapQueryResult>>()
-            .await
-            .context("receiving json response from jupiter swap price")?;
-
-    return Ok(quote);
+    let quote = Client::new()
+        .get("https://api.mngo.cloud/router/v1/swap")
+        .query(&[
+            ("inputMint", input_mint.to_string()),
+            ("outputMint", output_mint.to_string()),
+            ("amount", format!("{}", amount)),
+            ("slippage", format!("{}", slippage)),
+            ("feeBps", 0.to_string()),
+            ("mode", "ExactIn".to_string()),
+            ("wallet", wallet_address.to_string()),
+            ("otherAmountThreshold", 0.to_string()), // 'ExactIn' ? 0 : MAX_INTEGER
+        ])
+        .send()
+        .await
+        .context("swap price request to jupiter")
+        .unwrap()
+        .json::<Vec<SwapQueryResultRaw>>()
+        .await
+        .map(|x| x.into_iter().map(|x| x.into()).collect())
+        .context("receiving json response from jupiter swap price")?;
+    Ok(quote)
 }
 
-async fn call_buy_eth() -> anyhow::Result<Vec<SwapQueryResult>> {
+pub async fn call_buy_usd() -> BuyPrice {
 
+    match call1().await {
+        Ok(res) =>
+            BuyPrice {
+                price: calc_price1(res),
+                approx_timestamp: Instant::now(),
+            },
+        Err(err) => {
+            panic!("Error getting price from mango swap: {:?}", err);
+        }
+    }
+}
+
+async fn call2() -> anyhow::Result<Vec<SwapQueryResult>> {
     // USDC
     const input_mint: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
     // ETH
@@ -166,11 +147,26 @@ async fn call_buy_eth() -> anyhow::Result<Vec<SwapQueryResult>> {
             .send()
             .await
             .context("swap price request to jupiter")?
-            .json::<Vec<SwapQueryResult>>()
+            .json::<Vec<SwapQueryResultRaw>>()
             .await
+            .map(|x| x.into_iter().map(|x| x.into()).collect())
             .context("receiving json response from jupiter swap price")?;
 
-    return Ok(quote);
+    Ok(quote)
+}
+
+pub async fn call_buy_eth() -> BuyPrice {
+
+    match call2().await {
+        Ok(res) =>
+            BuyPrice {
+                price: calc_price2(res),
+                approx_timestamp: Instant::now(),
+            },
+        Err(err) => {
+            panic!("Error getting price from mango swap: {:?}", err);
+        }
+    }
 }
 
 mod test {
