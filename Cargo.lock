@@ -33,6 +33,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "url",
+ "websocket-tungstenite-retry",
 ]
 
 [[package]]
@@ -1271,7 +1272,9 @@ checksum = "f714dd15bead90401d77e04243611caec13726c2408afd5b31901dfcdcb3b181"
 dependencies = [
  "futures-util",
  "log",
+ "native-tls",
  "tokio",
+ "tokio-native-tls",
  "tungstenite",
 ]
 
@@ -1384,6 +1387,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
+ "native-tls",
  "rand",
  "sha-1",
  "thiserror",
@@ -1543,6 +1547,23 @@ checksum = "e33b99f4b23ba3eec1a53ac264e35a755f00e966e0065077d6027c0f575b0b97"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "websocket-tungstenite-retry"
+version = "0.6.0"
+source = "git+https://github.com/grooviegermanikus/websocket-tungstenite-retry.git?tag=0.7.0#057cba9fe25b1c0b732db8061ac7a32765d45288"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "log",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "tracing",
+ "url",
 ]
 
 [[package]]

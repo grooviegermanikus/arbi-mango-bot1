@@ -18,3 +18,4 @@ reqwest = { version = "0.11.17", features = ["json"] }
 serde = { version = "1.0.141", features = ["derive"] }
 serde_json = "1.0.82"
 jsonrpsee = { version = "0.18.1", features = ["http-client", "macros"] }
+websocket-tungstenite-retry = { git = "https://github.com/grooviegermanikus/websocket-tungstenite-retry.git", tag = "0.7.0" }
