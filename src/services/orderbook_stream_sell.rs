@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
@@ -10,9 +10,9 @@ use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json, Value};
 use tokio::sync::RwLock;
-use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::tungstenite::{connect, Message};
 use url::Url;
+use websocket_tungstenite_retry::websocket_stable::StableWebSocket;
+use websocket_tungstenite_retry::websocket_stable::WsMessage::Text;
 
 #[derive(Debug, Copy, Clone)]
 pub struct SellPrice {
@@ -100,50 +100,22 @@ pub async fn listen_orderbook_feed(market_id: &str,
                                    lowest_ask_price: Arc<RwLock<Option<f64>>>,
                                    lowest_bid_price: Arc<RwLock<Option<f64>>>) {
 
-    let (mut socket, response) =
-        connect(Url::parse("ws://127.0.0.1:8080").unwrap()).expect("Can't connect");
-
-    if response.status() != 101 {
-        // TODO implement reconnects
-        panic!("Error connecting to the server: {:?}", response);
-    }
-    // Response { status: 101, version: HTTP/1.1, headers: {"connection": "Upgrade", "upgrade": "websocket", "sec-websocket-accept": "ppgfXDDxtQBmL0eczLMf5VGbFIo="}, body: () }
-
-    // subscriptions= {"command":"subscribe","marketId":"ESdnpnNLgTkBCZRuTJkZLi5wKEZ2z47SG3PJrhundSQ2"}
-    let sub = &WsSubscription {
-        command: "subscribe".to_string(),
-        market_id: market_id.to_string(),
-    };
-    // Ok(Text("{\"success\":false,\"message\":\"market not found\"}"))
-    // Ok(Text("{\"success\":true,\"message\":\"subscribed\"}"))
-
-    socket.write_message(Message::text(json!(sub).to_string())).unwrap();
+    let mut ws = StableWebSocket::new_with_timeout(
+        Url::parse("wss://api.mngo.cloud/orderbook/v1/").unwrap(),
+        json!({
+            "command": "subscribe",
+            "marketId": market_id.to_string(),
+        }),
+        Duration::from_secs(3),
+    )
+        .await
+        .unwrap();
 
     let mut orderbook: Orderbook = Orderbook::default();
 
-    loop {
-        match socket.read_message() {
-            Ok(msg) => {
-                trace!("Received: {}", msg);
-            }
-            Err(e) => {
-                match e {
-                    tungstenite::Error::ConnectionClosed => {
-                        error!("Connection closed");
-                        break;
-                    }
-                    _ => {}
-                }
-                error!("Error reading message: {:?}", e);
-                break;
-            }
-        }
-        let msg = socket.read_message().unwrap();
+    let mut orderbook_updates_channel = ws.subscribe_message_channel();
 
-        let msg = match msg {
-            tungstenite::Message::Text(s) => { s }
-            _ => continue
-        };
+    while let Ok(Text(msg)) = orderbook_updates_channel.recv().await {
 
         let plain = from_str::<Value>(&msg).expect("Can't parse to JSON");
 
@@ -222,12 +194,6 @@ pub async fn listen_orderbook_feed(market_id: &str,
 
 }
 
-
-#[derive(Serialize)]
-struct SerParam {
-    param_1: u8,
-    param_2: String,
-}
 
 async fn _rpc_slot() {
 
