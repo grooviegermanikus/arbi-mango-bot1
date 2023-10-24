@@ -89,7 +89,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let cluster = Cluster::Custom(rpc_url.clone(), ws_url.clone());
 
-    info!("Starting arbi-bot{} to {} trading '{}' vs '{}' ...", if dry_run { "(DRYRUN)" } else { "" },
+    info!("Starting arbi-bot{} with RPC {} trading '{}' vs '{}' ...", if dry_run { "(DRYRUN)" } else { "" },
         rpc_url, trading_config::PERP_MARKET_NAME, trading_config::TOKEN_NAME);
 
     let mango_client = Arc::new(
