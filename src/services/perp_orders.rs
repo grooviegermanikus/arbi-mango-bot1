@@ -137,7 +137,7 @@ pub enum PerpAllowance {
 // note: invalidates mango account cache
 pub async fn calc_perp_position_allowance(mango_client: Arc<MangoClientRef>) -> PerpAllowance {
     // reload
-    mango_client.clear_account_cache().await;
+    mango_client.clear_account_cache();
 
     let market_index = mango_client.context.perp_market_indexes_by_name.get(trading_config::PERP_MARKET_NAME).unwrap();
     let perp_market = mango_client.context.perp_markets.get(market_index).unwrap().market.clone();
