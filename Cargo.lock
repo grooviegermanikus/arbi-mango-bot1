@@ -3120,15 +3120,20 @@ dependencies = [
  "async-trait",
  "bs58 0.3.1",
  "bytemuck",
+ "chrono",
  "clap 3.2.25",
  "env_logger",
  "fixed 1.11.0 (git+https://github.com/blockworks-foundation/fixed.git?branch=v1.11.0-borsh0_10-mango)",
+ "futures 0.3.28",
  "futures-channel",
  "futures-util",
  "itertools",
  "log 0.4.20",
  "mango-feeds-connector",
+ "mango-v4",
  "mango-v4-client",
+ "ordered-float",
+ "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
@@ -3139,6 +3144,8 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.17.2",
  "toml",
+ "url 2.4.1",
+ "websocket-tungstenite-retry",
  "ws",
 ]
 
@@ -3856,6 +3863,15 @@ dependencies = [
  "openssl-src",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "ordered-float"
+version = "4.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "536900a8093134cf9ccf00a27deb3532421099e958d9dd431135d0c7543ca1e8"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -7608,8 +7624,10 @@ checksum = "f714dd15bead90401d77e04243611caec13726c2408afd5b31901dfcdcb3b181"
 dependencies = [
  "futures-util",
  "log 0.4.20",
+ "native-tls",
  "rustls 0.20.9",
  "tokio",
+ "tokio-native-tls",
  "tokio-rustls 0.23.4",
  "tungstenite 0.17.3",
  "webpki",
@@ -7924,6 +7942,7 @@ dependencies = [
  "http",
  "httparse",
  "log 0.4.20",
+ "native-tls",
  "rand 0.8.5",
  "rustls 0.20.9",
  "sha-1 0.10.1",
@@ -8356,6 +8375,23 @@ dependencies = [
  "tokio-io",
  "tokio-tcp",
  "tokio-tls",
+]
+
+[[package]]
+name = "websocket-tungstenite-retry"
+version = "0.6.0"
+source = "git+https://github.com/grooviegermanikus/websocket-tungstenite-retry.git?tag=0.7.0#057cba9fe25b1c0b732db8061ac7a32765d45288"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "log 0.4.20",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.17.2",
+ "tokio-util 0.7.2",
+ "tracing",
+ "url 2.4.1",
 ]
 
 [[package]]

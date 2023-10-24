@@ -3,7 +3,7 @@ use chrono::Utc;
 use solana_sdk::pubkey::Pubkey;
 use mango_v4::state::{PerpMarket, PerpPosition, PlaceOrderType, SelfTradeBehavior, Side};
 use mango_v4_client::{JupiterSwapMode, MangoClient};
-use crate::numerics::{ConversionConf, native_amount, native_amount2, native_amount_to_lot, quote_amount_to_lot};
+use crate::numerics::*;
 use std::future::Future;
 use std::iter::Filter;
 use std::ops::Deref;
@@ -14,6 +14,7 @@ use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json, Value};
 use std::net::TcpStream;
+use anchor_lang::error;
 use itertools::{ExactlyOneError, Itertools};
 use solana_sdk::signature::Signature;
 use tokio_tungstenite::tungstenite::{connect, Message, WebSocket};
@@ -103,7 +104,7 @@ pub async fn perp_bid_blocking_until_fill(mango_client: &Arc<MangoClient>, clien
 pub async fn perp_bid_asset(mango_client: Arc<MangoClient>, client_order_id: u64, amount: f64) -> Signature {
 
     let market_index = mango_client.context.perp_market_indexes_by_name.get(trading_config::PERP_MARKET_NAME).unwrap(); // TODO
-    let perp_market = mango_client.context.perp_markets.get(market_index).unwrap().market.clone();
+    let perp_market: PerpMarket = mango_client.context.perp_markets.get(market_index).unwrap().market.clone();
 
     let order_size_lots = native_amount_to_lot(perp_market.into(), amount);
     debug!("perp order bid with size (client id {}): {}, {} lots", client_order_id, amount, order_size_lots);
@@ -135,7 +136,9 @@ pub enum PerpAllowance {
 // note: invalidates mango account cache
 pub async fn calc_perp_position_allowance(mango_client: Arc<MangoClient>) -> PerpAllowance {
     // reload
-    mango_client.account_fetcher.clear_cache().await;
+    panic!("need to reload cache");
+    // TODO
+    // mango_client.account_fetcher.clear_cache().await;
 
     let market_index = mango_client.context.perp_market_indexes_by_name.get(trading_config::PERP_MARKET_NAME).unwrap();
     let perp_market = mango_client.context.perp_markets.get(market_index).unwrap().market.clone();

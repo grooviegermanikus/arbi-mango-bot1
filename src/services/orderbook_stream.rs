@@ -144,7 +144,7 @@ pub async fn listen_perp_market_feed(market_id: &str,
         Url::parse("wss://api.mngo.cloud/orderbook/v1/").unwrap(),
 subscription_request, Duration::from_secs(5)).await.unwrap();
 
-    while let Some(ws_message) = socket.get_message_channel().recv().await {
+    while let Ok(ws_message) = socket.subscribe_message_channel().recv().await {
         let WsMessage::Text(plain) = ws_message else { continue; };
 
         let plain = from_str::<Value>(&plain).expect("Can't parse to JSON");

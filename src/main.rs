@@ -14,8 +14,8 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 use chrono::Utc;
 use futures::TryFutureExt;
-use jsonrpc_core_client::transports::ws;
-use jsonrpc_core_client::TypedSubscriptionStream;
+// use jsonrpc_core_client::transports::ws;
+// use jsonrpc_core_client::TypedSubscriptionStream;
 use solana_client::rpc_config::RpcSignatureSubscribeConfig;
 use solana_client::rpc_response::{Response, RpcSignatureResult};
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -35,7 +35,7 @@ use crate::services::swap_orders::swap_buy_asset;
 use crate::services::{trading_config, transactions};
 
 use solana_client::rpc_response::SlotUpdate;
-use jsonrpc_core::futures::StreamExt;
+// use jsonrpc_core::futures::StreamExt;
 use log::info;
 use serde_json::json;
 use solana_client::nonblocking::pubsub_client::PubsubClient;
@@ -50,7 +50,7 @@ use websocket_tungstenite_retry::websocket_stable::StableWebSocket;
 #[clap()]
 struct Cli {
 
-    #[arg(short, long)]
+    #[clap(short, long)]
     dry_run: bool,
 
     // e.g. https://mango.devnet.rpcpool.com

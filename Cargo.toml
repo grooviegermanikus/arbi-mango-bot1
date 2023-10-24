@@ -17,7 +17,8 @@ anchor-client = "0.28.0"
 
 mango-feeds-connector = "0.2.0"
 
-#mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4.git", features = ["client"], branch = "release/program-v0.20" }
+# required for mango_v4::state::*
+mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4.git", features = ["client"], branch = "release/program-v0.20" }
 mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4.git",  branch = "release/program-v0.20" }
 
 # note: we use a patched version of serum-dex to expose iterators - the mango program still uses the version 0.5.10+updates (commit c85e56d)
@@ -34,11 +35,18 @@ env_logger = "0.9.0"
 anyhow = "1.0"
 toml = "0.5"
 
+ordered-float = "4.1.1"
+
+reqwest = { version = "0.11", features = ["json"] }
+
 serde = "1.0.130"
 serde_derive = "1.0.130"
 serde_json = "1.0.68"
+futures = "0.3"
 futures-channel = "0.3"
 futures-util = "0.3"
+url = "2.3"
+chrono = "0.4"
 ws = "^0.9.2"
 async-channel = "1.6"
 async-trait = "0.1"
@@ -47,6 +55,9 @@ itertools = "0.10.3"
 
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.17"
+
+websocket-tungstenite-retry = { git = "https://github.com/grooviegermanikus/websocket-tungstenite-retry.git", tag = "0.7.0" }
+
 
 [patch.crates-io]
 # for gzip encoded responses

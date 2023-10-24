@@ -1,5 +1,5 @@
 use fixed::types::I80F48;
-use mango_v4::state::perp_market::{PerpMarket, QUOTE_DECIMALS};
+use mango_v4::state::{PerpMarket, QUOTE_DECIMALS};
 
 #[derive(Debug, Copy, Clone)]
 pub struct ConversionConf {
