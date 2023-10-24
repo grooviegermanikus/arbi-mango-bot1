@@ -8,14 +8,14 @@ name = "arbi-bot"
 path = "src/main.rs"
 
 [dependencies]
-mango-feeds-connector = "0.2.0"
-
 solana-client = "~1.16.14"
 solana-logger = "~1.16.14"
 solana-sdk = "~1.16.14"
 
 anchor-lang = "0.28.0"
 anchor-client = "0.28.0"
+
+mango-feeds-connector = "0.2.0"
 
 #mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4.git", features = ["client"], branch = "release/program-v0.20" }
 mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4.git",  branch = "release/program-v0.20" }
@@ -25,6 +25,8 @@ mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4.git
 serum_dex = { git = "https://github.com/grooviegermanikus/program.git", branch = "groovie/v0.5.10-updates-expose-things" }
 
 fixed = { git = "https://github.com/blockworks-foundation/fixed.git", branch = "v1.11.0-borsh0_10-mango" }
+
+clap = { version = "3.1.8", features = ["derive", "env"] }
 
 bs58 = "0.3.1"
 log = "0.4"
