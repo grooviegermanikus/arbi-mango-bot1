@@ -1,21 +1,51 @@
 [package]
-name = "arbi-mango-bot1"
+name = "mango-v4-arbi-bot"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "arbi-bot"
+path = "src/main.rs"
 
 [dependencies]
-log = "0.4.17"
-env_logger = "0.9.1"
-itertools = "0.10.5"
-anyhow = "1.0"
-ordered-float = "3.7.0"
-tokio = { version = "1.14.1", features = ["rt-multi-thread", "time", "macros", "sync"] }
-tokio-tungstenite = { version = "0.17.2" }
-url = "2.3.1"
-reqwest = { version = "0.11.17", features = ["json"] }
-serde = { version = "1.0.141", features = ["derive"] }
-serde_json = "1.0.82"
-jsonrpsee = { version = "0.18.1", features = ["http-client", "macros"] }
+solana-client = "~1.16.14"
+solana-sdk = "~1.16.14"
+solana-account-decoder = "~1.16.14"
+
+anchor-client = "0.28.0"
+anchor-lang = "0.28.0"
+anchor-spl = "0.28.0"
+
+#mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4.git", features = ["client"], branch = "release/program-v0.20" }
+mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4.git" }
+pyth-sdk-solana = "0.8.0"
+# commit c85e56d (0.5.10 plus depedency updates)
+serum_dex = { git = "https://github.com/openbook-dex/program.git", default-features=false, features = ["no-entrypoint", "program"] }
+
+clap = { version = "4.3.11", features = ["derive", "env"] }
+dotenv = "0.15.0"
+fixed = { git = "https://github.com/blockworks-foundation/fixed.git", branch = "v1.11.0-borsh0_10-mango" }
+futures = "0.3.21"
+jsonrpc-core = "18.0.0"
+jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http", "tls"] }
+
+log = "0.4.0"
+env_logger = "0.8.4"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.16"
+
+# note: there might be an issue with tonic 0.8 vs 0.10!
+tokio = { version = "~1.33", features = ["rt-multi-thread", "time", "macros", "sync"] }
+tokio-tungstenite = { version = "0.17.2", features = ["native-tls"] }
+serde = { version = "1.0.122", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4.24", features = ["serde"] }
+
 websocket-tungstenite-retry = { git = "https://github.com/grooviegermanikus/websocket-tungstenite-retry.git", tag = "0.7.0" }
+
+itertools = "0.10.5"
+ordered-float = "3.7.0"
+url = "2.3.1"
+# note: should match the version used in solana
+reqwest = { version = "0.11", features = ["json"] }
+
