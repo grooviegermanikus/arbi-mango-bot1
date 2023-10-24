@@ -25,6 +25,7 @@ use mango_v4_client::{
     keypair_from_cli, pubkey_from_cli, Client,
     TransactionBuilderConfig,
 };
+use crate::{CacheControl, MangoClientRef};
 use crate::services::fill_update_event::FillUpdateEvent;
 use crate::services::trading_config;
 
@@ -90,7 +91,7 @@ pub async fn block_fills_until_client_id(
 }
 
 // not used ATM
-pub async fn perp_bid_blocking_until_fill(mango_client: &Arc<MangoClient>, client_order_id: u64) {
+pub async fn perp_bid_blocking_until_fill(mango_client: &Arc<MangoClientRef>, client_order_id: u64) {
     let mut web_socket = init_ws_subscription(&trading_config::MARKET);
 
     perp_bid_asset(mango_client.clone(), client_order_id, 0.001).await;
@@ -101,7 +102,7 @@ pub async fn perp_bid_blocking_until_fill(mango_client: &Arc<MangoClient>, clien
 
 
 
-pub async fn perp_bid_asset(mango_client: Arc<MangoClient>, client_order_id: u64, amount: f64) -> Signature {
+pub async fn perp_bid_asset(mango_client: Arc<MangoClientRef>, client_order_id: u64, amount: f64) -> Signature {
 
     let market_index = mango_client.context.perp_market_indexes_by_name.get(trading_config::PERP_MARKET_NAME).unwrap(); // TODO
     let perp_market: PerpMarket = mango_client.context.perp_markets.get(market_index).unwrap().market.clone();
@@ -134,11 +135,9 @@ pub enum PerpAllowance {
 }
 
 // note: invalidates mango account cache
-pub async fn calc_perp_position_allowance(mango_client: Arc<MangoClient>) -> PerpAllowance {
+pub async fn calc_perp_position_allowance(mango_client: Arc<MangoClientRef>) -> PerpAllowance {
     // reload
-    panic!("need to reload cache");
-    // TODO
-    // mango_client.account_fetcher.clear_cache().await;
+    mango_client.clear_account_cache().await;
 
     let market_index = mango_client.context.perp_market_indexes_by_name.get(trading_config::PERP_MARKET_NAME).unwrap();
     let perp_market = mango_client.context.perp_markets.get(market_index).unwrap().market.clone();
@@ -173,7 +172,7 @@ pub async fn calc_perp_position_allowance(mango_client: Arc<MangoClient>) -> Per
 
 // PERP ask
 // only return sig, caller must check for progress/confirmation
-pub async fn perp_ask_asset(mango_client: Arc<MangoClient>, amount: f64) -> Signature {
+pub async fn perp_ask_asset(mango_client: Arc<MangoClientRef>, amount: f64) -> Signature {
     let client_order_id = Utc::now().timestamp_micros() as u64;
 
     let market_index = mango_client.context.perp_market_indexes_by_name.get(trading_config::PERP_MARKET_NAME).unwrap();

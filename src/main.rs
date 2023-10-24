@@ -3,9 +3,10 @@ mod coordinator;
 mod numerics;
 
 use std::future::Future;
+use std::ops::Deref;
 use std::rc::Rc;
 use clap::{Args, Parser, Subcommand};
-use mango_v4_client::{keypair_from_cli, pubkey_from_cli, Client, JupiterSwapMode, MangoClient, TransactionBuilderConfig, AnyhowWrap};
+use mango_v4_client::{keypair_from_cli, pubkey_from_cli, Client, JupiterSwapMode, MangoClient, TransactionBuilderConfig, AnyhowWrap, CachedAccountFetcher, RpcAccountFetcher, account_fetcher_fetch_mango_account, MangoGroupContext, AccountFetcher};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -92,7 +93,7 @@ async fn main() -> Result<(), anyhow::Error> {
         rpc_url, trading_config::PERP_MARKET_NAME, trading_config::TOKEN_NAME);
 
     let mango_client = Arc::new(
-        MangoClient::new_for_existing_account(
+        new_mango_client(
             Client::new(
                 cluster,
                 // TODO need two (ask Max)
@@ -107,10 +108,63 @@ async fn main() -> Result<(), anyhow::Error> {
             owner.clone(),
         ).await?);
 
-
     let coordinator_thread = tokio::spawn(coordinator::run_coordinator_service(mango_client.clone(), dry_run));
     coordinator_thread.await?;
 
     Ok(())
 }
 
+pub struct MangoClientRef {
+    mango_client: MangoClient,
+    cached_account_fetcher: Arc<CachedAccountFetcher<RpcAccountFetcher>>
+}
+
+trait CacheControl {
+    fn clear_account_cache(&self);
+}
+
+impl CacheControl for MangoClientRef {
+    fn clear_account_cache(&self) {
+        self.cached_account_fetcher.clear_cache();
+    }
+}
+
+impl Deref for MangoClientRef {
+    type Target = MangoClient;
+
+    fn deref(&self) -> &Self::Target {
+        &self.mango_client
+    }
+}
+
+
+async fn new_mango_client(
+    client: Client,
+    account: Pubkey,
+    owner: Arc<Keypair>,
+) -> anyhow::Result<MangoClientRef> {
+    let rpc = client.rpc_async();
+    let cached_account_fetcher = Arc::new(CachedAccountFetcher::new(Arc::new(RpcAccountFetcher {
+        rpc,
+    })));
+    let mango_account =
+        account_fetcher_fetch_mango_account(&*cached_account_fetcher, &account).await?;
+    let group = mango_account.fixed.group;
+    if mango_account.fixed.owner != owner.pubkey() {
+        anyhow::bail!(
+                "bad owner for account: expected {} got {}",
+                mango_account.fixed.owner,
+                owner.pubkey()
+            );
+    }
+
+    let rpc = client.rpc_async();
+    let group_context = MangoGroupContext::new_from_rpc(&rpc, group).await?;
+
+    let mango_client = MangoClient::new_detail(client, account, owner, group_context, cached_account_fetcher.clone());
+
+    mango_client.map(|mc| MangoClientRef {
+        mango_client: mc,
+        cached_account_fetcher: cached_account_fetcher.clone(),
+    })
+}

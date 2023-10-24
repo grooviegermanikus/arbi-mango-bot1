@@ -14,6 +14,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::{interval, sleep};
 use anchor_lang::solana_program::example_mocks::solana_sdk::signature::Signature;
 use mango_v4_client::MangoClient;
+use crate::MangoClientRef;
 use crate::services::asset_price_swap;
 
 use crate::services::asset_price_swap::{SwapBuyPrice, SwapSellPrice};
@@ -41,7 +42,7 @@ struct Coordinator {
 }
 
 
-pub async fn run_coordinator_service(mango_client: Arc<MangoClient>, dry_run: bool) {
+pub async fn run_coordinator_service(mango_client: Arc<MangoClientRef>, dry_run: bool) {
 
     let (buy_price_xwrite, mut buy_price_xread) = unbounded_channel();
     let (sell_price_xwrite, mut sell_price_xread) = unbounded_channel();
@@ -186,7 +187,7 @@ pub async fn run_coordinator_service(mango_client: Arc<MangoClient>, dry_run: bo
 
 }
 
-async fn trade_sequence_swap2perp(mango_client: Arc<MangoClient>) {
+async fn trade_sequence_swap2perp(mango_client: Arc<MangoClientRef>) {
 
     // must be unique
 
@@ -209,7 +210,7 @@ async fn trade_sequence_swap2perp(mango_client: Arc<MangoClient>) {
     info!("trade sequence completed.");
 }
 
-async fn trade_sequence_perp2swap(mango_client: Arc<MangoClient>) {
+async fn trade_sequence_perp2swap(mango_client: Arc<MangoClientRef>) {
     // must be unique
     let client_order_id = Utc::now().timestamp_micros() as u64;
     info!("starting perp->swap trade sequence (client_order_id {}) ...", client_order_id);

@@ -6,10 +6,11 @@ use tokio_tungstenite::tungstenite::stream::MaybeTlsStream;
 use tokio_tungstenite::tungstenite::{connect, Message, WebSocket};
 use url::Url;
 use mango_v4_client::MangoClient;
+use crate::MangoClientRef;
 
 // see https://github.com/blockworks-foundation/mangolana/blob/main/src/transactions.ts
 
-pub async fn await_transaction_signature_confirmation(mango_client: Arc<MangoClient>) {
+pub async fn await_transaction_signature_confirmation(mango_client: Arc<MangoClientRef>) {
 
     // TODO wrap in solana_sdk::signature::Signature if possible
     //

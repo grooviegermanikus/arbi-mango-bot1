@@ -10,13 +10,14 @@ use anyhow::anyhow;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signature;
+use crate::MangoClientRef;
 use crate::services::trading_config;
 use crate::services::trading_config::TOKEN_NAME;
 
 // bps
 const SLIPPAGE: u64 = 5;
 
-pub async fn swap_sell_asset(mango_client: Arc<MangoClient>, amount: f64) -> anyhow::Result<Signature> {
+pub async fn swap_sell_asset(mango_client: Arc<MangoClientRef>, amount: f64) -> anyhow::Result<Signature> {
     let market_index = mango_client.context.token_indexes_by_name.get(trading_config::TOKEN_NAME).unwrap();
     let market = mango_client.context.tokens.get(market_index).unwrap();
 
@@ -37,7 +38,7 @@ pub async fn swap_sell_asset(mango_client: Arc<MangoClient>, amount: f64) -> any
 }
 
 // only return sig, caller must check for progress/confirmation
-pub async fn swap_buy_asset(mango_client: Arc<MangoClient>, amount: f64) -> anyhow::Result<Signature> {
+pub async fn swap_buy_asset(mango_client: Arc<MangoClientRef>, amount: f64) -> anyhow::Result<Signature> {
     let market_index = mango_client.context.token_indexes_by_name.get(TOKEN_NAME).unwrap();
     let market = mango_client.context.tokens.get(market_index).unwrap();
 
