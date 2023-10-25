@@ -169,8 +169,9 @@ subscription_request, Duration::from_secs(5)).await.unwrap();
                 if let Some(old_highest) = *lock {
                     if old_highest.write_version > checkpoint.write_version {
                         // TODO reduce log level
-                        warn!("skip orderbook update due to old timestamp");
-                        continue;
+                        warn!("hmm orderbook update with write_version jumping from {} to {}",
+                            old_highest.write_version, checkpoint.write_version);
+                        // continue;
                     }
                 }
                 *lock = orderbook.get_highest_bid_price().map(|price| PriceInfo {
@@ -191,8 +192,9 @@ subscription_request, Duration::from_secs(5)).await.unwrap();
                 if let Some(old_highest) = *lock {
                     if old_highest.write_version > checkpoint.write_version {
                         // TODO reduce log level
-                        warn!("skip orderbook update due to old timestamp");
-                        continue;
+                        warn!("hmm orderbook update with write_version jumping from {} to {}",
+                            old_highest.write_version, checkpoint.write_version);
+                        // continue;
                     }
                 }
                 *lock = orderbook.get_lowest_ask_price().map(|price| PriceInfo {
@@ -218,8 +220,9 @@ subscription_request, Duration::from_secs(5)).await.unwrap();
                     if let Some(old_highest) = *lock {
                         if old_highest.write_version > update.write_version {
                             // TODO reduce log level
-                            warn!("skip orderbook update due to old timestamp");
-                            continue;
+                            warn!("hmm orderbook update with write_version jumping from {} to {}",
+                                old_highest.write_version, update.write_version);
+                            // continue;
                         }
                     }
                     *lock = Some(PriceInfo {
@@ -233,8 +236,9 @@ subscription_request, Duration::from_secs(5)).await.unwrap();
                     if let Some(old_highest) = *lock {
                         if old_highest.write_version > update.write_version {
                             // TODO reduce log level
-                            warn!("skip orderbook update due to old timestamp");
-                            continue;
+                            warn!("hmm orderbook update with write_version jumping from {} to {}",
+                                old_highest.write_version, update.write_version);
+                            // continue;
                         }
                     }
                     *lock = Some(PriceInfo {
