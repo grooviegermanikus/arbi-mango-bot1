@@ -128,6 +128,7 @@ pub async fn perp_bid_asset(mango_client: Arc<MangoClientRef>, client_order_id: 
     sig.unwrap()
 }
 
+#[derive(Clone, Debug)]
 pub enum PerpAllowance {
     Both,
     NoShort,
@@ -147,15 +148,17 @@ pub async fn calc_perp_position_allowance(mango_client: Arc<MangoClientRef>) -> 
         .filter(|position| position.market_index == *market_index)
         .at_most_one();
 
+    // ui
+    let mut total_perp_position_size_ui: Option<f64> = None;
 
-    if let Ok(Some(position)) =
+    let allowance = if let Ok(Some(position)) =
         single_position {
 
         // 0.0275 * 1e6 = 27500
         let base_native: i64 = position.base_position_native(&perp_market).to_num();
         let base_ui = base_native as f64 / 10f64.powi(perp_market.base_decimals as i32);
 
-        debug!("perp position size: {}", base_ui);
+        total_perp_position_size_ui = Some(base_ui);
 
         if base_ui > trading_config::PERP_ALLOWANCE_THRESHOLD_BASE_UI {
             PerpAllowance::NoLong
@@ -164,10 +167,11 @@ pub async fn calc_perp_position_allowance(mango_client: Arc<MangoClientRef>) -> 
         } else {
             PerpAllowance::Both
         }
-
     } else {
         PerpAllowance::Both
-    }
+    };
+    debug!("allowance '{:?}', total perp position size: {:?}", allowance, total_perp_position_size_ui);
+    allowance
 }
 
 // PERP ask

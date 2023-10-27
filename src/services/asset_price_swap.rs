@@ -107,6 +107,8 @@ async fn call_exactin() -> anyhow::Result<Vec<SwapQueryResult>> {
 
 pub async fn call_buy() -> SwapBuyPrice {
 
+    // TODO use quote() instead of exactin()
+
     match call_exactin().await {
         Ok(res) =>
             SwapBuyPrice {

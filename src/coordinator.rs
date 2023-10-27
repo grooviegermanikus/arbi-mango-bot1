@@ -23,8 +23,6 @@ use crate::services::perp_orders::{calc_perp_position_allowance, perp_ask_asset,
 use crate::services::swap_orders::{swap_buy_asset, swap_sell_asset};
 use crate::services::trading_config::*;
 
-const DRY_RUN: bool = true;
-
 const STARTUP_DELAY: Duration = Duration::from_secs(2);
 
 const MARKET_SCAN_INTERVAL: Duration =Duration::from_millis(500);
