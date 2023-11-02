@@ -1,12 +1,12 @@
+use std::str::FromStr;
 use std::time::Instant;
+use anchor_lang::prelude::Pubkey;
 
 use anyhow::Context;
-use ordered_float::OrderedFloat;
-use reqwest::Client;
+use mango_v4_client::jupiter::v4::{JupiterV4, QueryRoute};
+use mango_v4_client::JupiterSwapMode;
 use serde::{Deserialize, Serialize};
-use crate::services::orderbook_stream::OrderstreamPrice;
-use crate::services::trading_config;
-use crate::services::trading_config::BASE_DECIMALS;
+use crate::services::trading_config::{BASE_DECIMALS, MINT_ADDRESS_INPUT, MINT_ADDRESS_OUTPUT};
 
 #[derive(Debug, Copy, Clone)]
 pub struct SwapBuyPrice {
@@ -24,33 +24,57 @@ pub struct SwapSellPrice {
 
 // e.g. 0.18USD for 0.0001 ETH
 // max(sell)
-fn calc_price_exactin(response: Vec<SwapQueryResult>) -> f64 {
+async fn calc_price_exactin<'a>(jupiter: &JupiterV4<'a>) -> f64 {
     let usd_decimals = 6;
     let decimals = BASE_DECIMALS - usd_decimals;
     let multiplier = 10f64.powf(decimals.into()) as f64;
 
-    response.into_iter()
-        .map(|route| {
-            route.in_amount as f64 / route.out_amount as f64 * multiplier
-        })
-        .max_by_key(|price| OrderedFloat(*price))
-        .expect("no outAmounts found")
+    const slippage_bps: u64 = 5;
+    const amount: u64 = 100000;
+
+    let route: QueryRoute = jupiter
+        .quote(
+            Pubkey::from_str(MINT_ADDRESS_INPUT).unwrap(),
+            Pubkey::from_str(MINT_ADDRESS_OUTPUT).unwrap(),
+            amount, slippage_bps, JupiterSwapMode::ExactOut, true)
+        .await.unwrap();
+
+    let price = route.in_amount.parse::<u64>().unwrap() as f64 / route.out_amount.parse::<u64>().unwrap() as f64 * multiplier;
+
+    price
 
 }
 
 // e.g. price(USD) for 1 ETH asking for 0.001 ETH
+// e.g. 43.11 USD for 1 SOL
 // min(buy)
-fn calc_price_exactout(response: Vec<SwapQueryResult>) -> f64 {
+async fn calc_price_exactout<'a>(jupiter: &JupiterV4<'a>) -> f64 {
+
     let usd_decimals = 6;
     let decimals = BASE_DECIMALS - usd_decimals;
     let multiplier = 10f64.powf(decimals.into()) as f64;
 
-    response.into_iter()
-        .map(|route| {
-            route.in_amount as f64 / route.out_amount as f64 * multiplier
-        })
-        .min_by_key(|price| OrderedFloat(*price))
-        .expect("no inAmounts found")
+    const slippage_bps: u64 = 5;
+    const amount: u64 = 100000;
+    let route: QueryRoute = jupiter
+        .quote(
+            Pubkey::from_str(MINT_ADDRESS_INPUT).unwrap(),
+            Pubkey::from_str(MINT_ADDRESS_OUTPUT).unwrap(),
+            amount, slippage_bps, JupiterSwapMode::ExactOut, true)
+        .await.unwrap();
+
+    let price = route.in_amount.parse::<u64>().unwrap() as f64 / route.out_amount.parse::<u64>().unwrap() as f64 * multiplier;
+
+    // route: QueryRoute { in_amount: "4311", out_amount: "100000",
+    // price_impact_pct: 0.002647819591813372, market_infos:
+    // [QueryMarketInfo { id: "C7AD8EHcbKvFL3zw2z4YKKn1ZMTCYqkThZGtY3hPajsd",
+    // label: "Orca (Whirlpools)", input_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    // , output_mint: "So11111111111111111111111111111111111111112", not_enough_liquidity: false,
+    // in_amount: "4311", out_amount: "100000", min_in_amount: None, min_out_amount: None,
+    // price_impact_pct: Some(0.002647819591813326),
+    // lp_fee: QueryFee { amount: "11", mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", pct: Some(0.0025) }, platform_fee: QueryFee {
+
+    price
 
 }
 
@@ -76,117 +100,22 @@ impl From<SwapQueryResultRaw> for SwapQueryResult {
     }
 }
 
-async fn call_exactin() -> anyhow::Result<Vec<SwapQueryResult>> {
-    const amount: u64 = 1_000_000; // 1 USD
-    const wallet_address: &str = "11111111111111111111111111111111";
-    const slippage: &str = "0.005";
+pub async fn call_buy<'a>(jupiter: &JupiterV4<'a>) -> SwapBuyPrice {
 
-    // see mango-v4 -> router.ts
-    let quote = Client::new()
-        .get("https://api.mngo.cloud/router/v1/swap")
-        .query(&[
-            ("inputMint", trading_config::MINT_ADDRESS_INPUT.to_string()),
-            ("outputMint", trading_config::MINT_ADDRESS_OUTPUT.to_string()),
-            ("amount", format!("{}", amount)),
-            ("slippage", format!("{}", slippage)),
-            ("feeBps", 0.to_string()),
-            ("mode", "ExactIn".to_string()),
-            ("wallet", wallet_address.to_string()),
-            ("otherAmountThreshold", 0.to_string()), // 'ExactIn' ? 0 : MAX_INTEGER
-        ])
-        .send()
-        .await
-        .context("swap price request to jupiter")
-        .unwrap()
-        .json::<Vec<SwapQueryResultRaw>>()
-        .await
-        .map(|x| x.into_iter().map(|x| x.into()).collect())
-        .context("receiving json response from jupiter swap price")?;
-    Ok(quote)
-}
+    let price = calc_price_exactin(jupiter).await;
 
-pub async fn call_buy() -> SwapBuyPrice {
-
-    // TODO use quote() instead of exactin()
-
-    match call_exactin().await {
-        Ok(res) =>
-            SwapBuyPrice {
-                price: calc_price_exactin(res),
-                approx_timestamp: Instant::now(),
-            },
-        Err(err) => {
-            panic!("Error getting price from mango swap: {:?}", err);
-        }
+    SwapBuyPrice {
+        price: price,
+        approx_timestamp: Instant::now(),
     }
 }
 
-async fn call_exactout() -> anyhow::Result<Vec<SwapQueryResult>> {
-    const amount: u64 = 100000;
-    const wallet_address: &str = "11111111111111111111111111111111";
-    const slippage: &str = "0.005";
+pub async fn call_sell<'a>(jupiter: &JupiterV4<'a>) -> SwapSellPrice {
 
-    // see mango-v4 -> router.ts
-    let quote =
-        reqwest::Client::new()
-            .get("https://api.mngo.cloud/router/v1/swap")
-            .query(&[
-                ("inputMint", trading_config::MINT_ADDRESS_INPUT.to_string()),
-                ("outputMint", trading_config::MINT_ADDRESS_OUTPUT.to_string()),
-                ("amount", format!("{}", amount)),
-                ("slippage", format!("{}", slippage)),
-                ("feeBps", 0.to_string()),
-                ("mode", "ExactOut".to_string()),
-                ("wallet", wallet_address.to_string()),
-            ])
-            .send()
-            .await
-            .context("swap price request to jupiter")?
-            .json::<Vec<SwapQueryResultRaw>>()
-            .await
-            .map(|x| x.into_iter().map(|x| x.into()).collect())
-            .context("receiving json response from jupiter swap price")?;
+    let res = calc_price_exactout(jupiter).await;
 
-    Ok(quote)
-}
-
-pub async fn call_sell() -> SwapSellPrice {
-
-    match call_exactout().await {
-        Ok(res) =>
-            SwapSellPrice {
-                price: calc_price_exactout(res),
-                approx_timestamp: Instant::now(),
-            },
-        Err(err) => {
-            panic!("Error getting price from mango swap: {:?}", err);
-        }
+    SwapSellPrice {
+        price: res,
+        approx_timestamp: Instant::now(),
     }
-}
-
-mod test {
-    use crate::services::asset_price_swap::{calc_price_exactin, call_buy, SwapQueryResult};
-
-    #[test]
-    fn test_best_route_single() {
-        let routes = vec![SwapQueryResult { in_amount: 10000_f64, out_amount: 6000_f64 }];
-        assert_eq!(0.006, calc_price_exactin(routes));
-    }
-
-    #[test]
-    fn test_best_route_buy_highest() {
-        let routes1 = vec![
-            SwapQueryResult { in_amount: 10000_f64, out_amount: 4000_f64 },
-            SwapQueryResult { in_amount: 10000_f64, out_amount: 8000_f64 },
-        ];
-        assert_eq!(0.008, calc_price_exactin(routes1));
-
-        let routes2 = vec![
-            SwapQueryResult { in_amount: 10000_f64, out_amount: 4000_f64 },
-            SwapQueryResult { in_amount: 10000_f64, out_amount: 8000_f64 },
-        ];
-        assert_eq!(0.008, calc_price_exactin(routes2));
-
-    }
-
 }
