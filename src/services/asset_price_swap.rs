@@ -41,8 +41,6 @@ async fn calc_price_exactin<'a>(jupiter: &JupiterV4<'a>) -> f64 {
 
     let price = route.in_amount.parse::<u64>().unwrap() as f64 / route.out_amount.parse::<u64>().unwrap() as f64 * multiplier;
 
-    println!("newprice: {:?}", price);
-
     price
 
 }
