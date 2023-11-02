@@ -1,19 +1,13 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Condvar};
-use std::thread;
+use std::sync::Arc;
 use std::time::Duration;
 use chrono::Utc;
-use futures::future::join_all;
 use futures::join;
-use itertools::join;
 
 use log::{debug, info, trace, warn};
 use mpsc::unbounded_channel;
-use tokio::sync::{Barrier, mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, RwLock};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::{interval, sleep};
-use anchor_lang::solana_program::example_mocks::solana_sdk::signature::Signature;
-use mango_v4_client::MangoClient;
 use crate::MangoClientRef;
 use crate::services::asset_price_swap;
 
@@ -53,11 +47,13 @@ pub async fn run_coordinator_service(mango_client: Arc<MangoClientRef>, dry_run:
     };
 
     let poll_buy_price = tokio::spawn({
+        let mc = mango_client.clone();
         async move {
             sleep(STARTUP_DELAY).await;
             let mut interval = interval(Duration::from_secs(2));
             loop {
-                let price = asset_price_swap::call_buy().await;
+                let jupiter = mc.jupiter_v4();
+                let price = asset_price_swap::call_buy(&jupiter).await;
                 debug!("swap buy price: {:?}", price);
 
                 buy_price_xwrite.send(price).unwrap();
@@ -68,11 +64,13 @@ pub async fn run_coordinator_service(mango_client: Arc<MangoClientRef>, dry_run:
     });
 
     let poll_sell_price = tokio::spawn({
+        let mc = mango_client.clone();
         async move {
             sleep(STARTUP_DELAY).await;
             let mut interval = interval(Duration::from_secs(2));
             loop {
-                let price = asset_price_swap::call_sell().await;
+                let jupyter = mc.jupiter_v4();
+                let price = asset_price_swap::call_sell(&jupyter).await;
                 debug!("swap sell price: {:?}", price);
 
                 sell_price_xwrite.send(price).unwrap();
