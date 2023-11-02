@@ -19,7 +19,7 @@ use crate::services::trading_config::*;
 
 const STARTUP_DELAY: Duration = Duration::from_secs(2);
 
-const MARKET_SCAN_INTERVAL: Duration =Duration::from_millis(500);
+const MARKET_SCAN_INTERVAL: Duration =Duration::from_millis(2500);
 
 // time to wait after trade (per direction)
 const TRADING_COOLDOWN: Duration = Duration::from_secs(5);
